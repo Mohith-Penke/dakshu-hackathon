@@ -1,50 +1,426 @@
+/* ==============================
+   AI JOBGUARD - MAIN STYLES
+   ============================== */
+
 * {
     box-sizing: border-box;
 }
 
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     background: linear-gradient(135deg, #0f172a, #1d4ed8);
-    color: white;
+    color: #ffffff;
     min-height: 100vh;
 }
 
+
+/* ==============================
+   COMMON CONTAINER
+   ============================== */
+
 .container {
+    width: 90%;
     max-width: 950px;
     margin: auto;
-    padding: 40px 20px;
+}
+
+
+/* ==============================
+   HEADER
+   ============================== */
+
+.header {
+    padding: 45px 20px 35px;
     text-align: center;
 }
 
 .logo {
-    font-size: 55px;
+    font-size: 38px;
+    font-weight: bold;
+    margin-bottom: 10px;
 }
 
-h1 {
-    font-size: 42px;
-    margin: 10px 0;
-}
-
-.subtitle {
-    font-size: 18px;
+.tagline {
+    margin: 0;
     color: #dbeafe;
-    margin-bottom: 35px;
+    font-size: 18px;
 }
+
+
+/* ==============================
+   INTRODUCTION
+   ============================== */
+
+.intro {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.intro h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.intro p {
+    max-width: 700px;
+    margin: auto;
+    color: #dbeafe;
+    line-height: 1.6;
+}
+
+
+/* ==============================
+   MAIN CARD
+   ============================== */
 
 .card {
-    background: white;
+    background: #ffffff;
     color: #111827;
     padding: 30px;
-    border-radius: 20px;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
-    text-align: left;
+    border-radius: 18px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
 }
 
-.card h2 {
-    text-align: center;
+.card label {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 12px;
 }
+
+
+/* ==============================
+   TEXTAREA
+   ============================== */
 
 textarea {
     width: 100%;
-    height: 190px
+    min-height: 250px;
+    resize: vertical;
+
+    padding: 16px;
+
+    border: 2px solid #d1d5db;
+    border-radius: 12px;
+
+    font-size: 16px;
+    font-family: Arial, Helvetica, sans-serif;
+
+    outline: none;
+}
+
+textarea:focus {
+    border-color: #2563eb;
+}
+
+
+/* ==============================
+   ANALYZE BUTTON
+   ============================== */
+
+#analyzeButton {
+    width: 100%;
+    margin-top: 18px;
+
+    padding: 15px;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #2563eb;
+    color: white;
+
+    font-size: 17px;
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+#analyzeButton:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+#analyzeButton:active {
+    transform: translateY(0);
+}
+
+
+/* ==============================
+   ERROR MESSAGE
+   ============================== */
+
+.error-message {
+    display: none;
+    margin-top: 12px;
+    color: #dc2626;
+    font-weight: bold;
+}
+
+
+/* ==============================
+   RESULT SECTION
+   ============================== */
+
+.result-section {
+    margin-top: 30px;
+}
+
+.hidden {
+    display: none;
+}
+
+.result-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.result-header h2 {
+    margin-bottom: 5px;
+    font-size: 30px;
+}
+
+.result-header p {
+    color: #dbeafe;
+}
+
+
+/* ==============================
+   RISK CARD
+   ============================== */
+
+.risk-card {
+    background: #ffffff;
+    color: #111827;
+
+    border-radius: 18px;
+    padding: 30px;
+
+    display: flex;
+    align-items: center;
+    gap: 30px;
+
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+
+    border-left: 8px solid #16a34a;
+}
+
+
+/* Low Risk */
+
+.risk-card.low {
+    border-left-color: #16a34a;
+}
+
+
+/* Suspicious */
+
+.risk-card.suspicious {
+    border-left-color: #eab308;
+}
+
+
+/* High Risk */
+
+.risk-card.high {
+    border-left-color: #dc2626;
+}
+
+
+/* ==============================
+   SCORE CIRCLE
+   ============================== */
+
+.score-circle {
+    width: 125px;
+    height: 125px;
+
+    min-width: 125px;
+
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-direction: column;
+
+    background: #f3f4f6;
+
+    border: 8px solid #16a34a;
+}
+
+.risk-card.suspicious .score-circle {
+    border-color: #eab308;
+}
+
+.risk-card.high .score-circle {
+    border-color: #dc2626;
+}
+
+.score-circle span {
+    font-size: 38px;
+    font-weight: bold;
+}
+
+.score-circle small {
+    color: #6b7280;
+}
+
+.risk-info h3 {
+    margin: 0 0 10px;
+    font-size: 28px;
+}
+
+.risk-info p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.6;
+}
+
+
+/* ==============================
+   RESULT CARDS
+   ============================== */
+
+.result-card {
+    margin-top: 20px;
+
+    background: #ffffff;
+    color: #111827;
+
+    padding: 25px;
+
+    border-radius: 16px;
+
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.result-card h3 {
+    margin-top: 0;
+}
+
+
+/* ==============================
+   WARNING LIST
+   ============================== */
+
+#warningList {
+    margin: 0;
+    padding-left: 20px;
+}
+
+#warningList li {
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+
+/* ==============================
+   RECOMMENDATION
+   ============================== */
+
+.recommendation {
+    margin-top: 20px;
+
+    background: rgba(255, 255, 255, 0.12);
+
+    border: 1px solid rgba(255, 255, 255, 0.2);
+
+    padding: 18px;
+
+    border-radius: 12px;
+
+    line-height: 1.6;
+}
+
+
+/* ==============================
+   DISCLAIMER
+   ============================== */
+
+.disclaimer {
+    margin: 25px 0 40px;
+
+    padding: 15px;
+
+    text-align: center;
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    color: #dbeafe;
+}
+
+
+/* ==============================
+   FOOTER
+   ============================== */
+
+footer {
+    text-align: center;
+
+    padding: 25px;
+
+    background: rgba(0, 0, 0, 0.2);
+
+    color: #dbeafe;
+
+    font-size: 14px;
+}
+
+
+/* ==============================
+   MOBILE RESPONSIVE
+   ============================== */
+
+@media (max-width: 600px) {
+
+    .header {
+        padding-top: 30px;
+    }
+
+    .logo {
+        font-size: 30px;
+    }
+
+    .tagline {
+        font-size: 15px;
+    }
+
+    .intro h1 {
+        font-size: 26px;
+    }
+
+    .card {
+        padding: 20px;
+    }
+
+    textarea {
+        min-height: 220px;
+    }
+
+    .risk-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 25px 15px;
+    }
+
+    .risk-info h3 {
+        font-size: 24px;
+    }
+
+    .score-circle {
+        width: 110px;
+        height: 110px;
+        min-width: 110px;
+    }
+
+    .score-circle span {
+        font-size: 32px;
+    }
+}
