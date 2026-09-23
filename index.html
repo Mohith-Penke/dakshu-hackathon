@@ -4,44 +4,137 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>AI Fake Job & Internship Detector</title>
+    <title>AI JobGuard</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+    <link rel="stylesheet" href="style.css">
+</head>
 
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #0f172a, #1d4ed8);
-            color: white;
-            min-height: 100vh;
-        }
+<body>
 
-        .container {
-            max-width: 950px;
-            margin: auto;
-            padding: 40px 20px;
-            text-align: center;
-        }
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">🛡️ AI JobGuard</div>
+            <p class="tagline">
+                AI-Powered Fake Job & Internship Detector
+            </p>
+        </div>
+    </header>
 
-        .logo {
-            font-size: 55px;
-        }
 
-        h1 {
-            font-size: 42px;
-            margin: 10px 0;
-        }
+    <!-- Main Content -->
+    <main class="container">
 
-        .subtitle {
-            font-size: 18px;
-            color: #dbeafe;
-            margin-bottom: 35px;
-        }
+        <!-- Introduction -->
+        <section class="intro">
+            <h1>Check Before You Apply</h1>
 
-        .card {
-            background: white;
-            color: #111827;
-            padding:
+            <p>
+                Paste a job or internship description below and let AI JobGuard
+                identify common warning signs associated with suspicious job offers.
+            </p>
+        </section>
+
+
+        <!-- Analyzer Card -->
+        <section class="card">
+
+            <label for="jobDescription">
+                Job / Internship Description
+            </label>
+
+            <textarea
+                id="jobDescription"
+                placeholder="Paste the complete job or internship description here..."
+            ></textarea>
+
+            <button id="analyzeButton">
+                🔍 Analyze Job
+            </button>
+
+            <p id="errorMessage" class="error-message"></p>
+
+        </section>
+
+
+        <!-- Result Section -->
+        <section id="resultSection" class="result-section hidden">
+
+            <div class="result-header">
+                <h2>Analysis Result</h2>
+                <p>Risk assessment based on detected warning signs</p>
+            </div>
+
+
+            <!-- Risk Score -->
+            <div id="riskCard" class="risk-card">
+
+                <div class="score-circle">
+                    <span id="riskScore">0</span>
+                    <small>/100</small>
+                </div>
+
+                <div class="risk-info">
+                    <h3 id="riskLevel">Low Risk</h3>
+                    <p id="riskExplanation">
+                        No major warning signs were detected.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <!-- Warning Signs -->
+            <div class="result-card">
+
+                <h3>⚠️ Warning Signs Detected</h3>
+
+                <ul id="warningList">
+                    <li>No major warning signs detected.</li>
+                </ul>
+
+            </div>
+
+
+            <!-- Explanation -->
+            <div class="result-card">
+
+                <h3>💡 Why This Job May Be Suspicious</h3>
+
+                <p id="detailedExplanation">
+                    The description does not contain obvious suspicious indicators.
+                </p>
+
+            </div>
+
+
+            <!-- Recommendation -->
+            <div id="recommendation" class="recommendation">
+                Always verify the employer independently before sharing personal
+                information or making any payment.
+            </div>
+
+        </section>
+
+
+        <!-- Disclaimer -->
+        <section class="disclaimer">
+            <strong>Disclaimer:</strong>
+            AI JobGuard provides a basic risk assessment based on common
+            suspicious patterns. It is not 100% accurate. Always verify the
+            employer, company website, contact details and job offer independently.
+        </section>
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer>
+        <p>AI JobGuard • Smart India Hackathon Project</p>
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>
