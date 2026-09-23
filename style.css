@@ -1,0 +1,50 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1d4ed8);
+    color: white;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 950px;
+    margin: auto;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.logo {
+    font-size: 55px;
+}
+
+h1 {
+    font-size: 42px;
+    margin: 10px 0;
+}
+
+.subtitle {
+    font-size: 18px;
+    color: #dbeafe;
+    margin-bottom: 35px;
+}
+
+.card {
+    background: white;
+    color: #111827;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+    text-align: left;
+}
+
+.card h2 {
+    text-align: center;
+}
+
+textarea {
+    width: 100%;
+    height: 190px
