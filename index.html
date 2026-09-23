@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,19 +12,22 @@
 
 <body>
 
-    <!-- Animated Background -->
+    <!-- ================= ANIMATED BACKGROUND ================= -->
+
     <canvas id="backgroundCanvas"></canvas>
 
     <div class="background-grid"></div>
+
     <div class="glow glow-one"></div>
     <div class="glow glow-two"></div>
 
 
-    <!-- ================= HEADER ================= -->
+    <!-- ================= NAVBAR ================= -->
 
     <header class="navbar">
 
         <div class="brand">
+
             <div class="brand-icon">🛡️</div>
 
             <div>
@@ -32,28 +36,37 @@
                     Smart Job Safety
                 </div>
             </div>
+
         </div>
 
 
         <nav>
+
             <a href="#analyzer">Analyzer</a>
             <a href="#how-it-works">How It Works</a>
             <a href="#history">History</a>
             <a href="#safety">Safety</a>
+
         </nav>
 
 
         <div class="nav-actions">
 
             <select id="languageSelector">
+
                 <option value="en">EN</option>
                 <option value="te">తెలుగు</option>
                 <option value="hi">हिन्दी</option>
+
             </select>
 
+
             <div class="status">
+
                 <span class="status-dot"></span>
+
                 SYSTEM ONLINE
+
             </div>
 
         </div>
@@ -62,47 +75,67 @@
 
 
 
-    <!-- ================= HERO ================= -->
+    <!-- ================= MAIN ================= -->
 
     <main>
+
+
+        <!-- ================= HERO ================= -->
 
         <section class="hero">
 
             <div class="hero-badge">
+
                 <span>✦</span>
+
                 SMART INDIA HACKATHON PROJECT
+
             </div>
+
 
             <h1>
+
                 <span>Detect.</span>
-                <span>Verify.</span>
-                <strong>Stay Safe.</strong>
+                <span>Analyze.</span>
+                <span>Protect.</span>
+
             </h1>
 
-            <p>
-                AI-Powered Fake Job & Internship Detector
+
+            <p class="hero-description">
+
+                AI JobGuard helps identify suspicious job and internship
+                opportunities before you share money or sensitive information.
+
             </p>
 
-            <div class="hero-description">
-                Analyze job offers for common fraud patterns,
-                suspicious payment requests and misleading promises.
-            </div>
 
             <div class="hero-stats">
 
-                <div>
+                <div class="hero-stat glass-card">
+
                     <strong>0–100</strong>
+
                     <span>Risk Score</span>
+
                 </div>
 
-                <div>
+
+                <div class="hero-stat glass-card">
+
                     <strong>15+</strong>
+
                     <span>Risk Signals</span>
+
                 </div>
 
-                <div>
+
+                <div class="hero-stat glass-card">
+
                     <strong>3</strong>
+
                     <span>Languages</span>
+
                 </div>
 
             </div>
@@ -118,32 +151,74 @@
             <div class="section-heading">
 
                 <div>
-                    <span class="section-label">01 / ANALYSIS</span>
 
-                    <h2>Analyze a Job Offer</h2>
+                    <span class="section-label">
+                        01 / ANALYZER
+                    </span>
+
+                    <h2>
+                        Analyze a Job or Internship
+                    </h2>
 
                     <p>
-                        Paste the job or internship description below.
+                        Paste the job description below and check for
+                        common warning signs.
                     </p>
-                </div>
 
-                <div class="live-badge">
-                    ● LIVE ANALYSIS
                 </div>
 
             </div>
 
 
+
+            <!-- SAMPLE JOBS -->
+
+            <div class="sample-buttons">
+
+                <button
+                    class="sample-button"
+                    data-sample="low">
+                    Genuine Sample
+                </button>
+
+                <button
+                    class="sample-button"
+                    data-sample="medium">
+                    Suspicious Sample
+                </button>
+
+                <button
+                    class="sample-button"
+                    data-sample="high">
+                    Fake Job Sample
+                </button>
+
+            </div>
+
+
+
+            <!-- ANALYZER CARD -->
+
             <div class="analyzer-card glass-card">
 
-                <div class="input-header">
 
-                    <label for="jobDescription">
-                        Job / Internship Description
-                    </label>
+                <div class="textarea-header">
+
+                    <div>
+
+                        <strong>
+                            Job Description
+                        </strong>
+
+                        <span>
+                            Paste the complete message or offer.
+                        </span>
+
+                    </div>
+
 
                     <span id="characterCount">
-                        0 characters
+                        0 / 10000
                     </span>
 
                 </div>
@@ -151,73 +226,53 @@
 
                 <textarea
                     id="jobDescription"
-                    placeholder="Paste the complete job or internship description here...
-
-Example:
-We are hiring freshers for a work-from-home internship.
-Earn ₹80,000 per month with no interview.
-Pay a ₹2,000 registration fee to confirm your position.
-Contact us only through WhatsApp."
-                ></textarea>
+                    maxlength="10000"
+                    placeholder="Paste the job or internship description here..."></textarea>
 
 
-                <div class="input-tools">
+                <div class="analyzer-actions">
 
-                    <div class="sample-buttons">
+                    <button
+                        id="clearButton"
+                        class="outline-button">
 
-                        <span>Try example:</span>
-
-                        <button class="mini-btn" data-sample="low">
-                            🟢 Low Risk
-                        </button>
-
-                        <button class="mini-btn" data-sample="medium">
-                            🟡 Suspicious
-                        </button>
-
-                        <button class="mini-btn" data-sample="high">
-                            🔴 High Risk
-                        </button>
-
-                    </div>
-
-                    <button id="clearButton" class="clear-btn">
                         Clear
+
+                    </button>
+
+
+                    <button
+                        id="analyzeButton"
+                        class="primary-button">
+
+                        🔍 Analyze Opportunity
+
                     </button>
 
                 </div>
 
 
-                <button id="analyzeButton" class="glossy-button">
+                <!-- LOADING -->
 
-                    <span class="button-icon">🔍</span>
+                <div
+                    id="loadingArea"
+                    class="loading-area hidden">
 
-                    <span class="button-text">
-                        Analyze Job
+                    <div class="loader"></div>
+
+                    <span id="loadingText">
+                        Scanning for suspicious patterns...
                     </span>
-
-                    <span class="button-arrow">→</span>
-
-                </button>
-
-
-                <div id="loadingArea" class="loading-area hidden">
-
-                    <div class="scanner-line"></div>
-
-                    <div class="loading-spinner"></div>
-
-                    <div>
-                        <strong>Analyzing job description...</strong>
-                        <span id="loadingText">
-                            Checking suspicious patterns
-                        </span>
-                    </div>
 
                 </div>
 
 
-                <div id="errorMessage" class="error-message"></div>
+                <!-- ERROR -->
+
+                <div
+                    id="errorMessage"
+                    class="error-message hidden">
+                </div>
 
             </div>
 
@@ -227,34 +282,45 @@ Contact us only through WhatsApp."
 
         <!-- ================= RESULTS ================= -->
 
-        <section id="resultSection" class="section results-section hidden">
+        <section
+            id="resultSection"
+            class="section hidden">
+
 
             <div class="section-heading">
 
                 <div>
-                    <span class="section-label">02 / INTELLIGENCE</span>
 
-                    <h2>Analysis Result</h2>
+                    <span class="section-label">
+                        02 / RESULTS
+                    </span>
+
+                    <h2>
+                        Risk Analysis
+                    </h2>
 
                     <p>
-                        Here's what AI JobGuard found.
+                        An explainable assessment based on detected patterns.
                     </p>
-                </div>
 
-                <button id="downloadReport" class="outline-button">
-                    ↓ Download Report
-                </button>
+                </div>
 
             </div>
 
 
-            <!-- Main Risk Result -->
 
-            <div id="riskCard" class="risk-main-card glass-card">
+            <!-- RISK CARD -->
 
-                <div class="risk-score-container">
+            <div
+                id="riskCard"
+                class="risk-card glass-card">
 
-                    <div id="scoreRing" class="score-ring">
+
+                <!-- SCORE -->
+
+                <div class="score-area">
+
+                    <div class="score-ring">
 
                         <div class="score-inner">
 
@@ -262,11 +328,14 @@ Contact us only through WhatsApp."
                                 0
                             </strong>
 
-                            <span>/100</span>
+                            <span>
+                                /100
+                            </span>
 
                         </div>
 
                     </div>
+
 
                     <div class="score-caption">
                         Overall Risk Score
@@ -275,30 +344,54 @@ Contact us only through WhatsApp."
                 </div>
 
 
+
+                <!-- SUMMARY -->
+
                 <div class="risk-summary">
 
-                    <div id="riskPill" class="risk-pill">
+                    <div
+                        id="riskPill"
+                        class="risk-pill">
+
                         LOW RISK
+
                     </div>
+
 
                     <h3 id="riskTitle">
                         No major warning signs detected
                     </h3>
+
 
                     <p id="riskExplanation">
                         The description contains few or no common
                         suspicious indicators.
                     </p>
 
+
+
                     <div class="risk-meter">
 
                         <div class="meter-label">
-                            <span>Risk Level</span>
-                            <span id="meterValue">0%</span>
+
+                            <span>
+                                Risk Level
+                            </span>
+
+                            <span id="meterValue">
+                                0%
+                            </span>
+
                         </div>
+
 
                         <div class="meter-track">
-                            <div id="meterFill" class="meter-fill"></div>
+
+                            <div
+                                id="meterFill"
+                                class="meter-fill">
+                            </div>
+
                         </div>
 
                     </div>
@@ -309,30 +402,52 @@ Contact us only through WhatsApp."
 
 
 
-            <!-- Risk Breakdown -->
+            <!-- RISK BREAKDOWN -->
 
-            <div class="two-column">
-
-                <div class="glass-card result-box">
-
-                    <div class="box-title">
-                        <span>📊</span>
-                        Risk Breakdown
-                    </div>
-
-                    <div id="riskBreakdown" class="breakdown-list"></div>
-
-                </div>
+            <div class="analysis-grid">
 
 
-                <div class="glass-card result-box">
+                <div class="analysis-card glass-card">
 
-                    <div class="box-title">
+                    <div class="card-title">
+
                         <span>⚠️</span>
+
+                        Risk Breakdown
+
+                    </div>
+
+
+                    <div id="riskBreakdown">
+
+                        <p class="empty-state">
+                            Analyze a job to see the breakdown.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="analysis-card glass-card">
+
+                    <div class="card-title">
+
+                        <span>🚨</span>
+
                         Warning Signs
+
                     </div>
 
-                    <div id="warningList" class="warning-list"></div>
+
+                    <div id="warningList">
+
+                        <p class="empty-state">
+                            No warnings detected yet.
+                        </p>
+
+                    </div>
 
                 </div>
 
@@ -340,69 +455,70 @@ Contact us only through WhatsApp."
 
 
 
-            <!-- Explanation -->
+            <!-- EXPLANATION -->
 
-            <div class="glass-card explanation-box">
+            <div class="analysis-card glass-card">
 
-                <div class="box-title">
+                <div class="card-title">
+
                     <span>🧠</span>
-                    Why This Job May Be Suspicious
+
+                    Why This May Be Risky
+
                 </div>
 
-                <p id="detailedExplanation"></p>
 
-                <div id="recommendation" class="recommendation"></div>
+                <div id="detailedExplanation">
+
+                    Analyze the opportunity to see an explanation.
+
+                </div>
 
             </div>
 
 
 
-            <!-- Highlighted Text -->
+            <!-- RECOMMENDATION -->
 
-            <div class="glass-card">
+            <div class="analysis-card glass-card">
 
-                <div class="box-title">
+                <div class="card-title">
+
+                    <span>🛡️</span>
+
+                    Safety Recommendation
+
+                </div>
+
+
+                <div id="recommendation">
+
+                    Always verify the employer independently.
+
+                </div>
+
+            </div>
+
+
+
+            <!-- HIGHLIGHTED TEXT -->
+
+            <div class="analysis-card glass-card">
+
+                <div class="card-title">
+
                     <span>🔎</span>
+
                     Suspicious Text Highlights
-                </div>
-
-                <div id="highlightedText" class="highlighted-text"></div>
-
-                <div class="highlight-legend">
-                    <span>
-                        <i></i>
-                        Detected suspicious phrase
-                    </span>
-                </div>
-
-            </div>
-
-
-
-            <!-- Contact Analysis -->
-
-            <div class="two-column">
-
-                <div class="glass-card result-box">
-
-                    <div class="box-title">
-                        <span>📞</span>
-                        Contact Analysis
-                    </div>
-
-                    <div id="contactAnalysis"></div>
 
                 </div>
 
 
-                <div class="glass-card result-box">
+                <div
+                    id="highlightedText"
+                    class="highlighted-text">
 
-                    <div class="box-title">
-                        <span>💰</span>
-                        Salary & Payment Analysis
-                    </div>
-
-                    <div id="salaryAnalysis"></div>
+                    No analysis available yet.
 
                 </div>
 
@@ -410,11 +526,62 @@ Contact us only through WhatsApp."
 
 
 
-            <!-- Personal Data Warning -->
+            <!-- CONTACT ANALYSIS -->
 
-            <div id="personalDataWarning" class="personal-warning hidden">
+            <div class="analysis-card glass-card">
 
-                <div class="warning-icon">🔐</div>
+                <div class="card-title">
+
+                    <span>📞</span>
+
+                    Contact & Link Analysis
+
+                </div>
+
+
+                <div id="contactAnalysis">
+
+                    Analyze a job to inspect contact details.
+
+                </div>
+
+            </div>
+
+
+
+            <!-- SALARY -->
+
+            <div class="analysis-card glass-card">
+
+                <div class="card-title">
+
+                    <span>💰</span>
+
+                    Salary & Payment Analysis
+
+                </div>
+
+
+                <div id="salaryAnalysis">
+
+                    Analyze a job to check salary and payment signals.
+
+                </div>
+
+            </div>
+
+
+
+            <!-- PERSONAL DATA -->
+
+            <div
+                id="personalDataWarning"
+                class="personal-warning hidden">
+
+                <div class="warning-icon">
+                    🔐
+                </div>
+
 
                 <div>
 
@@ -422,13 +589,49 @@ Contact us only through WhatsApp."
                         Sensitive Information Warning
                     </strong>
 
+
                     <p>
                         This description appears to request sensitive
-                        information. Never share OTPs, UPI PINs, passwords,
-                        card PINs or banking credentials with recruiters.
+                        information. Never share OTPs, UPI PINs,
+                        passwords, card PINs or banking credentials
+                        with recruiters.
                     </p>
 
                 </div>
+
+            </div>
+
+
+
+            <!-- REPORT ACTIONS -->
+
+            <div class="result-actions">
+
+                <button
+                    id="downloadReport"
+                    class="primary-button">
+
+                    📄 Download Report
+
+                </button>
+
+
+                <button
+                    id="copyAnalysis"
+                    class="outline-button">
+
+                    📋 Copy Analysis
+
+                </button>
+
+
+                <button
+                    id="shareAnalysis"
+                    class="outline-button">
+
+                    🔗 Share Analysis
+
+                </button>
 
             </div>
 
@@ -438,13 +641,22 @@ Contact us only through WhatsApp."
 
         <!-- ================= HOW IT WORKS ================= -->
 
-        <section id="how-it-works" class="section">
+        <section
+            id="how-it-works"
+            class="section">
+
 
             <div class="section-heading centered">
 
-                <span class="section-label">03 / PROCESS</span>
+                <span class="section-label">
+                    03 / PROCESS
+                </span>
 
-                <h2>How AI JobGuard Works</h2>
+
+                <h2>
+                    How AI JobGuard Works
+                </h2>
+
 
                 <p>
                     A simple explainable detection process.
@@ -453,15 +665,23 @@ Contact us only through WhatsApp."
             </div>
 
 
+
             <div class="steps-grid">
+
 
                 <div class="step-card glass-card">
 
-                    <div class="step-number">01</div>
+                    <div class="step-number">
+                        01
+                    </div>
 
-                    <div class="step-icon">📋</div>
+                    <div class="step-icon">
+                        📋
+                    </div>
 
-                    <h3>Paste</h3>
+                    <h3>
+                        Paste
+                    </h3>
 
                     <p>
                         Paste the job or internship description
@@ -471,13 +691,20 @@ Contact us only through WhatsApp."
                 </div>
 
 
+
                 <div class="step-card glass-card">
 
-                    <div class="step-number">02</div>
+                    <div class="step-number">
+                        02
+                    </div>
 
-                    <div class="step-icon">🔍</div>
+                    <div class="step-icon">
+                        🔍
+                    </div>
 
-                    <h3>Detect</h3>
+                    <h3>
+                        Detect
+                    </h3>
 
                     <p>
                         The system checks for common suspicious
@@ -487,13 +714,20 @@ Contact us only through WhatsApp."
                 </div>
 
 
+
                 <div class="step-card glass-card">
 
-                    <div class="step-number">03</div>
+                    <div class="step-number">
+                        03
+                    </div>
 
-                    <div class="step-icon">📊</div>
+                    <div class="step-icon">
+                        📊
+                    </div>
 
-                    <h3>Score</h3>
+                    <h3>
+                        Score
+                    </h3>
 
                     <p>
                         Detected signals contribute to an
@@ -503,13 +737,20 @@ Contact us only through WhatsApp."
                 </div>
 
 
+
                 <div class="step-card glass-card">
 
-                    <div class="step-number">04</div>
+                    <div class="step-number">
+                        04
+                    </div>
 
-                    <div class="step-icon">🛡️</div>
+                    <div class="step-icon">
+                        🛡️
+                    </div>
 
-                    <h3>Protect</h3>
+                    <h3>
+                        Protect
+                    </h3>
 
                     <p>
                         Follow the recommendations and verify
@@ -526,67 +767,241 @@ Contact us only through WhatsApp."
 
         <!-- ================= HISTORY ================= -->
 
-        <section id="history" class="section">
+        <section
+            id="history"
+            class="section">
+
 
             <div class="section-heading">
 
                 <div>
 
-                    <span class="section-label">04 / ACTIVITY</span>
+                    <span class="section-label">
+                        04 / ACTIVITY
+                    </span>
 
-                    <h2>Analysis Dashboard</h2>
+
+                    <h2>
+                        Analysis Dashboard
+                    </h2>
+
 
                     <p>
-                        Your recent analysis activity is stored locally
-                        in your browser.
+                        Your recent analysis activity is stored
+                        locally in your browser.
                     </p>
 
                 </div>
 
-                <button id="clearHistory" class="outline-button">
+
+                <button
+                    id="clearHistory"
+                    class="outline-button">
+
                     Clear History
+
                 </button>
 
             </div>
 
 
+
             <div class="stats-grid">
 
+
                 <div class="stat-card glass-card">
+
                     <span>🔍</span>
-                    <strong id="totalScans">0</strong>
-                    <small>Jobs Analyzed</small>
+
+                    <strong id="totalScans">
+                        0
+                    </strong>
+
+                    <small>
+                        Jobs Analyzed
+                    </small>
+
                 </div>
 
+
+
                 <div class="stat-card glass-card">
+
                     <span>🔴</span>
-                    <strong id="highRiskCount">0</strong>
-                    <small>High Risk</small>
+
+                    <strong id="highRiskCount">
+                        0
+                    </strong>
+
+                    <small>
+                        High Risk
+                    </small>
+
                 </div>
 
+
+
                 <div class="stat-card glass-card">
+
                     <span>🟡</span>
-                    <strong id="suspiciousCount">0</strong>
-                    <small>Suspicious</small>
+
+                    <strong id="suspiciousCount">
+                        0
+                    </strong>
+
+                    <small>
+                        Suspicious
+                    </small>
+
                 </div>
 
+
+
                 <div class="stat-card glass-card">
+
                     <span>🟢</span>
-                    <strong id="lowRiskCount">0</strong>
-                    <small>Low Risk</small>
+
+                    <strong id="lowRiskCount">
+                        0
+                    </strong>
+
+                    <small>
+                        Low Risk
+                    </small>
+
                 </div>
 
             </div>
 
 
-            <div id="historyList" class="history-list glass-card">
 
-                <div class="empty-history">
-                    <span>📂</span>
-                    <h3>No analysis history yet</h3>
-                    <p>
-                        Analyze a job to see it appear here.
+            <div class="history-card glass-card">
+
+                <div class="card-title">
+
+                    <span>🕘</span>
+
+                    Recent Analyses
+
+                </div>
+
+
+                <div id="historyList">
+
+                    <p class="empty-state">
+                        No analyses yet.
                     </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- ================= AWARENESS ================= -->
+
+        <section
+            id="awareness"
+            class="section">
+
+
+            <div class="section-heading centered">
+
+                <span class="section-label">
+                    05 / AWARENESS
+                </span>
+
+
+                <h2>
+                    Know the Warning Signs
+                </h2>
+
+
+                <p>
+                    Common patterns that deserve extra verification.
+                </p>
+
+            </div>
+
+
+
+            <div class="awareness-grid">
+
+
+                <div class="awareness-card glass-card">
+
+                    <div class="awareness-icon">
+                        💳
+                    </div>
+
+                    <h3>
+                        Payment Requests
+                    </h3>
+
+                    <p>
+                        Be cautious when a recruiter asks for
+                        registration, training, security or processing fees.
+                    </p>
+
+                </div>
+
+
+
+                <div class="awareness-card glass-card">
+
+                    <div class="awareness-icon">
+                        💰
+                    </div>
+
+                    <h3>
+                        Unrealistic Salary
+                    </h3>
+
+                    <p>
+                        Extremely high income promises with little
+                        experience or effort deserve verification.
+                    </p>
+
+                </div>
+
+
+
+                <div class="awareness-card glass-card">
+
+                    <div class="awareness-icon">
+                        ⏰
+                    </div>
+
+                    <h3>
+                        Urgency
+                    </h3>
+
+                    <p>
+                        Pressure to pay or respond immediately can
+                        prevent proper verification.
+                    </p>
+
+                </div>
+
+
+
+                <div class="awareness-card glass-card">
+
+                    <div class="awareness-icon">
+                        🔐
+                    </div>
+
+                    <h3>
+                        Sensitive Data
+                    </h3>
+
+                    <p>
+                        Never share OTPs, UPI PINs, passwords or
+                        banking credentials with recruiters.
+                    </p>
+
                 </div>
 
             </div>
@@ -599,50 +1014,110 @@ Contact us only through WhatsApp."
 
         <section class="section">
 
+
             <div class="section-heading centered">
 
-                <span class="section-label">05 / AWARENESS</span>
+                <span class="section-label">
+                    06 / COMPARISON
+                </span>
 
-                <h2>Genuine vs Suspicious Jobs</h2>
 
-                <p>
-                    Learn some common differences.
-                </p>
+                <h2>
+                    Fake vs Genuine Job Signals
+                </h2>
 
             </div>
 
 
+
             <div class="comparison-table glass-card">
 
-                <div class="comparison-head">
-                    <div>Genuine-looking opportunity</div>
-                    <div>Potentially suspicious opportunity</div>
+                <div class="comparison-row comparison-header">
+
+                    <span>
+                        Signal
+                    </span>
+
+                    <span>
+                        Usually Safer
+                    </span>
+
+                    <span>
+                        Warning Sign
+                    </span>
+
                 </div>
 
 
-                <div class="comparison-row">
-                    <div>Official company email</div>
-                    <div>Random personal email</div>
-                </div>
 
                 <div class="comparison-row">
-                    <div>Normal interview process</div>
-                    <div>No interview required</div>
+
+                    <span>
+                        Interview
+                    </span>
+
+                    <span>
+                        Clear selection process
+                    </span>
+
+                    <span>
+                        Instant selection
+                    </span>
+
                 </div>
 
-                <div class="comparison-row">
-                    <div>No payment required to apply</div>
-                    <div>Registration / joining fee</div>
-                </div>
+
 
                 <div class="comparison-row">
-                    <div>Realistic compensation</div>
-                    <div>Guaranteed huge salary</div>
+
+                    <span>
+                        Payment
+                    </span>
+
+                    <span>
+                        No job-entry payment
+                    </span>
+
+                    <span>
+                        Registration / security fee
+                    </span>
+
                 </div>
 
+
+
                 <div class="comparison-row">
-                    <div>Verifiable company website</div>
-                    <div>Unknown or suspicious website</div>
+
+                    <span>
+                        Salary
+                    </span>
+
+                    <span>
+                        Reasonable for role
+                    </span>
+
+                    <span>
+                        Guaranteed huge income
+                    </span>
+
+                </div>
+
+
+
+                <div class="comparison-row">
+
+                    <span>
+                        Contact
+                    </span>
+
+                    <span>
+                        Official company channel
+                    </span>
+
+                    <span>
+                        Personal / suspicious contact
+                    </span>
+
                 </div>
 
             </div>
@@ -653,51 +1128,90 @@ Contact us only through WhatsApp."
 
         <!-- ================= SAFETY CHECKLIST ================= -->
 
-        <section id="safety" class="section">
+        <section
+            id="safety"
+            class="section">
+
 
             <div class="section-heading centered">
 
-                <span class="section-label">06 / PROTECTION</span>
+                <span class="section-label">
+                    07 / SAFETY
+                </span>
 
-                <h2>Job Safety Checklist</h2>
+
+                <h2>
+                    Before You Accept a Job
+                </h2>
+
 
                 <p>
-                    Verify these points before accepting an offer.
+                    Complete this quick safety checklist.
                 </p>
 
             </div>
 
 
-            <div class="checklist-grid">
+
+            <div class="checklist">
+
 
                 <label class="check-item glass-card">
+
                     <input type="checkbox">
-                    <span>Verified the official company website</span>
+
+                    <span>
+                        I verified the company independently
+                    </span>
+
                 </label>
 
-                <label class="check-item glass-card">
-                    <input type="checkbox">
-                    <span>Checked the recruiter email domain</span>
-                </label>
+
 
                 <label class="check-item glass-card">
+
                     <input type="checkbox">
-                    <span>No payment was requested</span>
+
+                    <span>
+                        No payment was requested for the job
+                    </span>
+
                 </label>
 
-                <label class="check-item glass-card">
-                    <input type="checkbox">
-                    <span>Interview / selection process is clear</span>
-                </label>
+
 
                 <label class="check-item glass-card">
+
                     <input type="checkbox">
-                    <span>Salary and responsibilities seem realistic</span>
+
+                    <span>
+                        Interview / selection process is clear
+                    </span>
+
                 </label>
 
+
+
                 <label class="check-item glass-card">
+
                     <input type="checkbox">
-                    <span>I have not shared sensitive credentials</span>
+
+                    <span>
+                        Salary and responsibilities seem realistic
+                    </span>
+
+                </label>
+
+
+
+                <label class="check-item glass-card">
+
+                    <input type="checkbox">
+
+                    <span>
+                        I have not shared sensitive credentials
+                    </span>
+
                 </label>
 
             </div>
@@ -714,21 +1228,24 @@ Contact us only through WhatsApp."
                 🛡️
             </div>
 
+
             <div>
 
                 <span class="section-label">
                     CYBER SAFETY
                 </span>
 
+
                 <h2>
-                    Never Pay to Get a Job
+                    Already Lost Money?
                 </h2>
 
+
                 <p>
-                    Legitimate opportunities generally should not require
-                    candidates to pay money simply to receive employment.
-                    Be careful with requests for OTPs, UPI PINs, passwords,
-                    bank credentials or urgent transfers.
+                    Preserve transaction details, screenshots and
+                    communication records. Contact your bank or payment
+                    provider immediately and use official cybercrime
+                    reporting channels in your country.
                 </p>
 
             </div>
@@ -741,12 +1258,14 @@ Contact us only through WhatsApp."
 
         <div class="disclaimer">
 
-            <strong>Important:</strong>
+            <strong>
+                Important:
+            </strong>
 
             AI JobGuard provides a rule-based risk assessment using
-            common suspicious patterns. It is <strong>not 100% accurate</strong>
-            and a low-risk result does not guarantee that an opportunity
-            is genuine. Always verify the employer independently.
+            common suspicious patterns. It is <strong>not 100% accurate</strong>.
+            A low-risk result does not guarantee that an opportunity is
+            genuine. Always verify the employer independently.
 
         </div>
 
@@ -762,9 +1281,11 @@ Contact us only through WhatsApp."
             🛡️ AI JobGuard
         </div>
 
+
         <p>
             AI-Powered Fake Job & Internship Detector
         </p>
+
 
         <span>
             Smart India Hackathon Project • Built for safer opportunities
@@ -774,7 +1295,10 @@ Contact us only through WhatsApp."
 
 
 
+    <!-- JAVASCRIPT -->
+
     <script src="script.js"></script>
 
 </body>
 </html>
+```
