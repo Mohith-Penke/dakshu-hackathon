@@ -1,2975 +1,2484 @@
 /* =========================================================
-   AI JOBGUARD
-   Fake Job & Internship Detector
-   Complete Client-Side JavaScript
-   Rule-Based + Explainable + Local History
+   AI JOBGUARD — COMPLETE JAVASCRIPT
+   Client-side rule-based analysis
 ========================================================= */
 
 "use strict";
 
-document.addEventListener("DOMContentLoaded", () => {
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
 
-    /* =====================================================
-       1. ELEMENTS
-    ===================================================== */
+const STORAGE_KEY = "aiJobGuardHistory";
 
-    const $ = (id) => document.getElementById(id);
+let currentAnalysis = null;
+let currentLanguage = "en";
 
-    const analyzeButton = $("analyzeButton");
-    const jobDescription = $("jobDescription");
-    const resultSection = $("resultSection");
+/* =========================================================
+   DOM HELPERS
+========================================================= */
 
-    const riskCard = $("riskCard");
-    const riskScore = $("riskScore");
-    const riskLevel = $("riskLevel");
-    const riskExplanation = $("riskExplanation");
-    const riskPill = $("riskPill");
-    const riskTitle = $("riskTitle");
+const $ = (selector) => document.querySelector(selector);
 
-    const meterValue = $("meterValue");
-    const meterFill = $("meterFill");
+const $$ = (selector) => document.querySelectorAll(selector);
 
-    const riskBreakdown = $("riskBreakdown");
-    const warningList = $("warningList");
-    const detailedExplanation = $("detailedExplanation");
-    const recommendation = $("recommendation");
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
-    const highlightedText = $("highlightedText");
-    const contactAnalysis = $("contactAnalysis");
-    const salaryAnalysis = $("salaryAnalysis");
-    const personalDataWarning = $("personalDataWarning");
+/* =========================================================
+   DOM ELEMENTS
+========================================================= */
 
-    const downloadReport = $("downloadReport");
+const jobDescription = $("#jobDescription");
+const characterCount = $("#characterCount");
 
-    const characterCount = $("characterCount");
-    const clearButton = $("clearButton");
+const clearButton = $("#clearButton");
+const analyzeButton = $("#analyzeButton");
 
-    const loadingArea = $("loadingArea");
-    const loadingText = $("loadingText");
-    const errorMessage = $("errorMessage");
+const loadingArea = $("#loadingArea");
+const loadingText = $("#loadingText");
+const errorMessage = $("#errorMessage");
 
-    const historyList = $("historyList");
-    const clearHistory = $("clearHistory");
+const resultSection = $("#resultSection");
+const riskCard = $("#riskCard");
 
-    const totalScans = $("totalScans");
-    const highRiskCount = $("highRiskCount");
-    const suspiciousCount = $("suspiciousCount");
-    const lowRiskCount = $("lowRiskCount");
+const riskScore = $("#riskScore");
+const riskPill = $("#riskPill");
+const riskTitle = $("#riskTitle");
+const riskExplanation = $("#riskExplanation");
 
-    const languageSelector = $("languageSelector");
+const meterValue = $("#meterValue");
+const meterFill = $("#meterFill");
 
-    const backgroundCanvas = $("backgroundCanvas");
+const riskBreakdown = $("#riskBreakdown");
+const warningList = $("#warningList");
+const detailedExplanation = $("#detailedExplanation");
+const recommendation = $("#recommendation");
 
-    const HISTORY_KEY = "aiJobGuardHistory";
-    const LANGUAGE_KEY = "aiJobGuardLanguage";
+const highlightedText = $("#highlightedText");
 
-    let lastAnalysis = null;
-    let loadingTimer = null;
+const contactAnalysis = $("#contactAnalysis");
+const salaryAnalysis = $("#salaryAnalysis");
+const personalDataWarning = $("#personalDataWarning");
 
+const downloadReport = $("#downloadReport");
+const copyAnalysis = $("#copyAnalysis");
+const shareAnalysis = $("#shareAnalysis");
 
-    /* =====================================================
-       2. SUSPICIOUS PATTERNS
-    ===================================================== */
+const clearHistory = $("#clearHistory");
 
-    const suspiciousPatterns = [
+const totalScans = $("#totalScans");
+const highRiskCount = $("#highRiskCount");
+const suspiciousCount = $("#suspiciousCount");
+const lowRiskCount = $("#lowRiskCount");
+const historyList = $("#historyList");
 
-        {
-            id: "registration-fee",
-            name: "Registration Fee",
-            points: 25,
-            keywords: [
-                "registration fee",
-                "registration fees",
-                "pay registration",
-                "registration payment",
-                "registration charge"
-            ],
-            warning: "A registration fee or registration payment is requested."
-        },
+const languageSelector = $("#languageSelector");
 
-        {
-            id: "application-fee",
-            name: "Application / Joining Fee",
-            points: 20,
-            keywords: [
-                "application fee",
-                "processing fee",
-                "processing fees",
-                "joining fee",
-                "joining fees",
-                "application charge"
-            ],
-            warning: "An application, processing or joining fee is mentioned."
-        },
+/* =========================================================
+   SAMPLE JOBS
+========================================================= */
 
-        {
-            id: "upfront-payment",
-            name: "Upfront Payment",
-            points: 25,
-            keywords: [
-                "upfront payment",
-                "pay upfront",
-                "advance payment",
-                "pay in advance",
-                "pay money",
-                "send money",
-                "transfer money",
-                "payment required"
-            ],
-            warning: "The applicant is asked to make an upfront or advance payment."
-        },
+const sampleJobs = {
+    low: `
+Software Development Intern
 
-        {
-            id: "deposit",
-            name: "Security Deposit",
-            points: 20,
-            keywords: [
-                "security deposit",
-                "refundable deposit",
-                "deposit money",
-                "pay deposit",
-                "security fee"
-            ],
-            warning: "A security deposit or money transfer is requested."
-        },
+Company: TechNova Solutions
+Location: Hyderabad / Hybrid
+Duration: 6 months
 
-        {
-            id: "no-interview",
-            name: "No Interview",
-            points: 15,
-            keywords: [
-                "no interview",
-                "without interview",
-                "no interview required",
-                "interview not required",
-                "direct selection",
-                "selected without interview"
-            ],
-            warning: "The opportunity suggests that an interview is not required."
-        },
-
-        {
-            id: "guaranteed-job",
-            name: "Guaranteed Selection",
-            points: 18,
-            keywords: [
-                "guaranteed selection",
-                "100% selection",
-                "job guaranteed",
-                "guaranteed job",
-                "guaranteed placement",
-                "100% job guarantee"
-            ],
-            warning: "A guaranteed job, placement or selection claim is present."
-        },
-
-        {
-            id: "unrealistic-income",
-            name: "Unrealistic Income",
-            points: 20,
-            keywords: [
-                "guaranteed salary",
-                "guaranteed income",
-                "earn huge",
-                "earn lakhs",
-                "unlimited income",
-                "easy money",
-                "easy income",
-                "earn money easily"
-            ],
-            warning: "The message contains unusually strong or guaranteed income claims."
-        },
-
-        {
-            id: "whatsapp-only",
-            name: "WhatsApp-Only Contact",
-            points: 10,
-            keywords: [
-                "whatsapp only",
-                "contact only on whatsapp",
-                "whatsapp number",
-                "whatsapp us",
-                "contact through whatsapp",
-                "message us on whatsapp"
-            ],
-            warning: "The opportunity relies heavily on WhatsApp communication."
-        },
-
-        {
-            id: "urgent",
-            name: "Urgency / Pressure",
-            points: 12,
-            keywords: [
-                "act now",
-                "apply now",
-                "apply immediately",
-                "urgent",
-                "immediately",
-                "limited seats",
-                "limited positions",
-                "limited time",
-                "today only",
-                "last chance",
-                "hurry",
-                "confirm today"
-            ],
-            warning: "Urgent or pressure-based language is being used."
-        },
-
-        {
-            id: "urgent-payment",
-            name: "Urgent Payment",
-            points: 18,
-            keywords: [
-                "pay immediately",
-                "payment immediately",
-                "pay now",
-                "urgent payment",
-                "urgent fee",
-                "pay today",
-                "transfer immediately"
-            ],
-            warning: "The message combines payment with urgent language."
-        },
-
-        {
-            id: "sensitive-data",
-            name: "Sensitive Information",
-            points: 25,
-            keywords: [
-                "aadhaar",
-                "aadhar",
-                "pan card",
-                "pan number",
-                "bank account",
-                "bank details",
-                "account number",
-                "otp",
-                "one time password",
-                "upi pin",
-                "credit card",
-                "debit card",
-                "cvv",
-                "password"
-            ],
-            warning: "Sensitive personal or financial information is requested."
-        },
-
-        {
-            id: "gift-card",
-            name: "Gift Card / Crypto / Transfer",
-            points: 25,
-            keywords: [
-                "gift card",
-                "bitcoin",
-                "crypto payment",
-                "cryptocurrency",
-                "usdt",
-                "wire transfer",
-                "money transfer"
-            ],
-            warning: "The message requests an unusual payment method or money transfer."
-        },
-
-        {
-            id: "work-home-high-income",
-            name: "Work-From-Home High Income",
-            points: 10,
-            keywords: [
-                "work from home",
-                "work-from-home",
-                "wfh"
-            ],
-            special: "highIncome"
-        }
-
-    ];
-
-
-    /* =====================================================
-       3. SAMPLE JOBS
-    ===================================================== */
-
-    const sampleJobs = {
-
-        low: `Software Development Intern
-
-Company: ABC Technologies
-
-We are looking for a motivated software development intern.
+We are looking for a motivated software development intern to join our engineering team.
 
 Requirements:
 - Basic knowledge of Python or JavaScript
-- Good communication skills
+- Good problem-solving skills
 - Willingness to learn
+- Ability to work with a team
 
-The selection process includes a technical interview.
+Responsibilities:
+- Assist developers with software development tasks
+- Write and test basic code
+- Participate in code reviews
+- Attend weekly team meetings
 
-Apply through our official careers page.
+Selection process:
+1. Resume screening
+2. Technical interview
+3. HR discussion
 
-Stipend: ₹15,000 per month.
+Stipend: ₹15,000 per month
 
+Please apply through the official company careers page.
 No registration fee or payment is required.
+    `.trim(),
 
-Contact: careers@example.com`,
+    medium: `
+Urgent Hiring — Work From Home Internship
 
-        medium: `Digital Marketing Internship
+We are urgently looking for students for a work-from-home internship.
 
-Work from home opportunity.
+Salary: ₹40,000 - ₹60,000 per month
 
-Earn ₹40,000 per month.
+No experience required. Immediate joining available.
 
-Limited positions available.
+Selected candidates may be asked to attend a short online interview.
 
-Candidates should contact our recruiter on WhatsApp:
-+91 9876543210
+Contact HR through WhatsApp for faster processing.
 
-A small processing fee may be required.
+Limited vacancies available. Apply immediately to secure your position.
 
-Apply immediately to secure your position.`,
+Send your resume and contact details to hr.jobs2026@gmail.com.
+    `.trim(),
 
-        high: `URGENT WORK FROM HOME JOB!
+    high: `
+CONGRATULATIONS!!!
 
-Earn ₹2 lakh per month with no experience.
+You have been selected for an immediate work-from-home job with an international company.
 
-NO INTERVIEW REQUIRED.
+Salary: ₹1,50,000 per month guaranteed.
 
-100% JOB GUARANTEE.
+No interview required.
+No experience required.
 
-Pay a refundable registration fee immediately.
+To confirm your job, you must pay a refundable registration fee of ₹2,999 today.
 
-Send money through UPI to secure your position.
+Payment must be made through UPI to:
+jobsecure@upi
 
-Contact only through WhatsApp:
-+91 9876543210
+Your offer will expire in 30 minutes.
 
-Send your Aadhaar card, PAN card, bank account details and OTP.
+Send your Aadhaar number, PAN number, bank account details and OTP for verification.
 
-Limited seats. Apply NOW!`
+WhatsApp HR immediately on +91 9876543210.
 
+Failure to complete the payment will result in cancellation of your offer.
+    `.trim()
+};
+
+/* =========================================================
+   TRANSLATIONS
+========================================================= */
+
+const translations = {
+    en: {
+        systemOnline: "SYSTEM ONLINE",
+        analyzing: "Analyzing job posting...",
+        processing: "Processing risk indicators...",
+        generating: "Generating explainable analysis...",
+        low: "LOW RISK",
+        suspicious: "SUSPICIOUS",
+        high: "HIGH RISK"
+    },
+
+    te: {
+        systemOnline: "సిస్టమ్ ఆన్‌లైన్",
+        analyzing: "జాబ్ పోస్టింగ్‌ను విశ్లేషిస్తోంది...",
+        processing: "రిస్క్ సూచనలను పరిశీలిస్తోంది...",
+        generating: "వివరణాత్మక విశ్లేషణ రూపొందిస్తోంది...",
+        low: "తక్కువ రిస్క్",
+        suspicious: "అనుమానాస్పదం",
+        high: "అధిక రిస్క్"
+    },
+
+    hi: {
+        systemOnline: "सिस्टम ऑनलाइन",
+        analyzing: "जॉब पोस्टिंग का विश्लेषण हो रहा है...",
+        processing: "जोखिम संकेतों की जांच हो रही है...",
+        generating: "विस्तृत विश्लेषण तैयार हो रहा है...",
+        low: "कम जोखिम",
+        suspicious: "संदिग्ध",
+        high: "उच्च जोखिम"
+    }
+};
+
+/* =========================================================
+   RULE DEFINITIONS
+========================================================= */
+
+const rules = [
+    {
+        key: "payment",
+        name: "Payment Request",
+        points: 35,
+        patterns: [
+            /\bregistration fee\b/i,
+            /\bprocessing fee\b/i,
+            /\bjoining fee\b/i,
+            /\bsecurity deposit\b/i,
+            /\brefundable fee\b/i,
+            /\bpay\b.{0,40}\bfee\b/i,
+            /\bpayment\b.{0,40}\brequired\b/i,
+            /\bdeposit\b.{0,30}\bjob\b/i,
+            /\bpay\s*(₹|rs\.?|inr)?\s*[\d,]+/i
+        ],
+        warning: "The posting asks the applicant to pay money to obtain or confirm a job."
+    },
+
+    {
+        key: "noInterview",
+        name: "No Interview",
+        points: 18,
+        patterns: [
+            /\bno interview\b/i,
+            /\bwithout interview\b/i,
+            /\binterview not required\b/i,
+            /\bno interview required\b/i,
+            /\bselected without interview\b/i
+        ],
+        warning: "A job offer without a meaningful selection process can be a warning sign."
+    },
+
+    {
+        key: "unrealisticSalary",
+        name: "Unrealistic Salary",
+        points: 20,
+        patterns: [
+            /\b₹?\s*1[,.]?[0-9]{2,3}[,.]?[0-9]{2,3}\s*(per month|monthly)\b/i,
+            /\b₹?\s*[5-9][0-9],[0-9]{3}\s*(per month|monthly)\b/i,
+            /\bguaranteed income\b/i,
+            /\bguaranteed salary\b/i,
+            /\bearn\s*(₹|rs\.?|inr)?\s*[0-9,]+\s*(per day|daily|per month|monthly)\b/i,
+            /\bhigh salary\b.{0,30}\bno experience\b/i,
+            /\b1 lakh\b/i,
+            /\b2 lakh\b/i,
+            /\b3 lakh\b/i
+        ],
+        warning: "The salary or earning promise appears unusually high for the stated requirements."
+    },
+
+    {
+        key: "urgency",
+        name: "Urgency / Pressure",
+        points: 15,
+        patterns: [
+            /\burgent(?:ly)?\b/i,
+            /\bimmediate(?:ly)? joining\b/i,
+            /\blimited vacancies\b/i,
+            /\bapply immediately\b/i,
+            /\bact now\b/i,
+            /\bwithin \d+ minutes?\b/i,
+            /\bexpires? in \d+ minutes?\b/i,
+            /\btoday only\b/i,
+            /\blast chance\b/i,
+            /\bconfirm today\b/i
+        ],
+        warning: "The posting uses urgency or pressure to encourage a quick decision."
+    },
+
+    {
+        key: "personalEmail",
+        name: "Personal Email",
+        points: 10,
+        patterns: [
+            /\b[\w.+-]+@(gmail|yahoo|outlook|hotmail|protonmail)\.(com|in|co|net)\b/i
+        ],
+        warning: "The recruiter appears to use a free personal email provider instead of a company domain."
+    },
+
+    {
+        key: "whatsapp",
+        name: "WhatsApp-First Contact",
+        points: 8,
+        patterns: [
+            /\bwhatsapp\b/i,
+            /\bcontact.{0,20}whatsapp\b/i,
+            /\bmessage.{0,20}whatsapp\b/i
+        ],
+        warning: "The posting pushes applicants toward WhatsApp for recruitment communication."
+    },
+
+    {
+        key: "otp",
+        name: "OTP Request",
+        points: 35,
+        patterns: [
+            /\bshare\b.{0,30}\botp\b/i,
+            /\bsend\b.{0,30}\botp\b/i,
+            /\botp\b.{0,30}\bverification\b/i,
+            /\bverification\b.{0,30}\botp\b/i
+        ],
+        warning: "A legitimate employer should not ask applicants to disclose OTPs."
+    },
+
+    {
+        key: "bank",
+        name: "Bank Information",
+        points: 28,
+        patterns: [
+            /\bbank account\b/i,
+            /\baccount number\b/i,
+            /\bifsc\b/i,
+            /\bnet banking\b/i,
+            /\bdebit card\b/i,
+            /\bcredit card\b/i,
+            /\bcard number\b/i
+        ],
+        warning: "The posting requests sensitive financial information."
+    },
+
+    {
+        key: "aadhaar",
+        name: "Aadhaar Request",
+        points: 20,
+        patterns: [
+            /\baadhaar\b/i,
+            /\baadhar\b/i,
+            /\baadhaar number\b/i
+        ],
+        warning: "The posting requests Aadhaar information during recruitment."
+    },
+
+    {
+        key: "pan",
+        name: "PAN Request",
+        points: 18,
+        patterns: [
+            /\bpan number\b/i,
+            /\bpan card\b/i
+        ],
+        warning: "The posting requests PAN information."
+    },
+
+    {
+        key: "upiPin",
+        name: "UPI PIN Request",
+        points: 40,
+        patterns: [
+            /\bupi pin\b/i,
+            /\bupi password\b/i,
+            /\bpin\b.{0,20}\bupi\b/i
+        ],
+        warning: "A UPI PIN should never be shared with a recruiter or employer."
+    },
+
+    {
+        key: "fakeSelection",
+        name: "Instant Selection",
+        points: 18,
+        patterns: [
+            /\bcongratulations\b.{0,100}\bselected\b/i,
+            /\byou have been selected\b/i,
+            /\bselected immediately\b/i,
+            /\bdirect selection\b/i,
+            /\bguaranteed job\b/i
+        ],
+        warning: "The posting appears to promise selection without sufficient evaluation."
+    },
+
+    {
+        key: "noExperience",
+        name: "No Experience Promise",
+        points: 8,
+        patterns: [
+            /\bno experience required\b/i,
+            /\bwithout experience\b/i,
+            /\banyone can apply\b/i
+        ],
+        warning: "No experience requirements combined with other strong promises can increase risk."
+    },
+
+    {
+        key: "suspiciousLanguage",
+        name: "Suspicious Wording",
+        points: 10,
+        patterns: [
+            /\bguaranteed\b/i,
+            /\beasy money\b/i,
+            /\bquick money\b/i,
+            /\bearn money from home\b/i,
+            /\brich\b/i,
+            /\bsecret opportunity\b/i,
+            /\b100% job\b/i
+        ],
+        warning: "The posting contains language commonly associated with misleading job offers."
+    }
+];
+
+/* =========================================================
+   CONTACT DETECTION
+========================================================= */
+
+function detectContacts(text) {
+    const phones = text.match(
+        /(?:\+91[\s-]?)?[6-9]\d{9}\b/g
+    ) || [];
+
+    const emails = text.match(
+        /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
+    ) || [];
+
+    const urls = text.match(
+        /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
+    ) || [];
+
+    const upi = text.match(
+        /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}\b/g
+    ) || [];
+
+    const personalEmails = emails.filter((email) =>
+        /(gmail|yahoo|outlook|hotmail|protonmail)\./i.test(email)
+    );
+
+    return {
+        phones: [...new Set(phones)],
+        emails: [...new Set(emails)],
+        urls: [...new Set(urls)],
+        upi: [...new Set(upi)],
+        personalEmails: [...new Set(personalEmails)]
     };
-
-
-    /* =====================================================
-       4. HELPER FUNCTIONS
-    ===================================================== */
-
-    function escapeHTML(value) {
-
-        return String(value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-
-    }
-
-
-    function unique(values) {
-        return [...new Set(values)];
-    }
-
-
-    function showError(message) {
-
-        if (!errorMessage) return;
-
-        errorMessage.textContent = message;
-        errorMessage.style.display = "block";
-
-    }
-
-
-    function hideError() {
-
-        if (!errorMessage) return;
-
-        errorMessage.textContent = "";
-        errorMessage.style.display = "none";
-
-    }
-
-
-    function updateCharacterCount() {
-
-        if (!jobDescription || !characterCount) return;
-
-        characterCount.textContent =
-            jobDescription.value.length.toLocaleString();
-
-    }
-
-
-    function normalizeText(text) {
-
-        return String(text)
-            .toLowerCase()
-            .replace(/\s+/g, " ")
-            .trim();
-
-    }
-
-
-    function clampScore(score) {
-
-        return Math.max(0, Math.min(100, Math.round(score)));
-
-    }
-
-
-    /* =====================================================
-       5. CONTACT DETECTION
-    ===================================================== */
-
-    function detectContacts(text) {
-
-        const phones = unique(
-            text.match(/(?:\+91[\s-]?)?[6-9]\d{9}\b/g) || []
-        );
-
-        const emails = unique(
-            text.match(
-                /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi
-            ) || []
-        );
-
-        const urls = unique(
-            text.match(
-                /https?:\/\/[^\s<>"']+|www\.[^\s<>"']+/gi
-            ) || []
-        );
-
-        const personalEmails = emails.filter((email) => {
-
-            const domain = email
-                .split("@")[1]
-                ?.toLowerCase();
-
-            return [
-                "gmail.com",
-                "yahoo.com",
-                "yahoo.in",
-                "outlook.com",
-                "hotmail.com",
-                "protonmail.com",
-                "proton.me"
-            ].includes(domain);
-
-        });
-
-        const whatsapp =
-            /whatsapp|wa\.me/i.test(text);
-
-        const upi = unique(
-            text.match(
-                /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z0-9._-]{2,}\b/g
-            ) || []
-        );
-
-        return {
-            phones,
-            emails,
-            urls,
-            personalEmails,
-            whatsapp,
-            upi
-        };
-
-    }
-
-
-    /* =====================================================
-       6. PERSONAL DATA DETECTION
-    ===================================================== */
-
-    function detectPersonalData(text) {
-
-        const found = [];
-
-        const checks = [
-
-            {
-                name: "Aadhaar",
-                regex: /\baadhaar\b|\baadhar\b|\baadhaar card\b/i
-            },
-
-            {
-                name: "PAN Card",
-                regex: /\bpan card\b|\bpan number\b|\bpan details\b/i
-            },
-
-            {
-                name: "Bank Account",
-                regex: /\bbank account\b|\bbank details\b|\baccount number\b|\bbank credentials\b/i
-            },
-
-            {
-                name: "OTP",
-                regex: /\botp\b|\bone[- ]time password\b|\bverification code\b/i
-            },
-
-            {
-                name: "Credit Card",
-                regex: /\bcredit card\b|\bcard number\b/i
-            },
-
-            {
-                name: "Debit Card",
-                regex: /\bdebit card\b/i
-            },
-
-            {
-                name: "CVV",
-                regex: /\bcvv\b|\bcvc\b/i
-            },
-
-            {
-                name: "UPI PIN",
-                regex: /\bupi pin\b|\bupi password\b/i
-            },
-
-            {
-                name: "Password",
-                regex: /\bpassword\b|\blogin credentials\b/i
-            }
-
-        ];
-
-        checks.forEach((item) => {
-
-            if (item.regex.test(text)) {
-                found.push(item.name);
-            }
-
-        });
-
-        return found;
-
-    }
-
-
-    /* =====================================================
-       7. SALARY ANALYSIS
-    ===================================================== */
-
-    function analyzeSalary(text) {
-
-        const amounts = unique(
-            text.match(
-                /(?:₹|rs\.?|inr)\s?\d+(?:[.,]\d+)?\s?(?:k|K|lakh|lakhs|lpa|LPA)?/gi
-            ) || []
-        );
-
-        const lakhPerMonth =
-            /\b(?:₹|rs\.?|inr)?\s?\d+(?:\.\d+)?\s?(?:lakh|lakhs)\s?(?:per month|monthly)\b/i
-                .test(text);
-
-        const hugeNumber =
-            /\b(?:₹|rs\.?|inr)\s?(?:[5-9]\d{4}|[1-9]\d{5,})\s?(?:per day|daily)\b/i
-                .test(text);
-
-        const guaranteedIncome =
-            /guaranteed\s+(?:salary|income|earnings)|earn\s+(?:huge|lakhs)|unlimited\s+income|easy\s+(?:money|income)/i
-                .test(text);
-
-        const unrealistic =
-            lakhPerMonth ||
-            hugeNumber ||
-            guaranteedIncome;
-
-        return {
-            amounts,
-            unrealistic
-        };
-
-    }
-
-
-    /* =====================================================
-       8. COMPANY ANALYSIS
-    ===================================================== */
-
-    function analyzeCompany(text, contacts) {
-
-        let companyName = "";
-
-        const companyPatterns = [
-
-            /company\s*:\s*([^\n]+)/i,
-            /company\s+name\s*:\s*([^\n]+)/i,
-            /at\s+([A-Z][A-Za-z0-9&.,' -]{2,50})/i,
-            /we\s+are\s+([A-Z][A-Za-z0-9&.,' -]{2,50})/i
-
-        ];
-
-        for (const regex of companyPatterns) {
-
-            const match = text.match(regex);
-
-            if (match && match[1]) {
-                companyName = match[1].trim();
-                break;
-            }
-
+}
+
+/* =========================================================
+   PERSONAL INFORMATION DETECTION
+========================================================= */
+
+function detectPersonalData(text) {
+    const findings = [];
+
+    const checks = [
+        {
+            label: "Aadhaar number",
+            regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/i
+        },
+        {
+            label: "PAN number",
+            regex: /\b[A-Z]{5}\d{4}[A-Z]\b/i
+        },
+        {
+            label: "Bank account information",
+            regex: /\b(bank account|account number|account details|ifsc)\b/i
+        },
+        {
+            label: "OTP",
+            regex: /\b(otp|one[-\s]?time password)\b/i
+        },
+        {
+            label: "Credit/debit card information",
+            regex: /\b(credit card|debit card|card number|cvv)\b/i
+        },
+        {
+            label: "UPI PIN",
+            regex: /\bupi\s*pin\b/i
         }
+    ];
 
-        const website =
-            contacts.urls.length > 0
-                ? contacts.urls[0]
-                : "";
-
-        let emailDomain = "";
-
-        if (contacts.emails.length > 0) {
-
-            emailDomain =
-                contacts.emails[0]
-                    .split("@")[1]
-                    ?.toLowerCase() || "";
-
+    checks.forEach((check) => {
+        if (check.regex.test(text)) {
+            findings.push(check.label);
         }
-
-        const personalDomain =
-            [
-                "gmail.com",
-                "yahoo.com",
-                "yahoo.in",
-                "outlook.com",
-                "hotmail.com",
-                "protonmail.com",
-                "proton.me"
-            ].includes(emailDomain);
-
-        const httpsWebsite =
-            website.startsWith("https://");
-
-        return {
-            companyName,
-            website,
-            emailDomain,
-            personalDomain,
-            httpsWebsite,
-            basicOnly: true
-        };
-
-    }
-
-
-    /* =====================================================
-       9. MAIN ANALYZER
-    ===================================================== */
-
-    function performAnalysis(text) {
-
-        const normalized = normalizeText(text);
-
-        let score = 0;
-
-        const findings = [];
-        const detectedPatterns = [];
-
-        suspiciousPatterns.forEach((pattern) => {
-
-            let matched = false;
-
-            if (pattern.special === "highIncome") {
-
-                const salary = analyzeSalary(text);
-
-                matched =
-                    /work\s*[- ]?\s*from\s*[- ]?\s*home|wfh/i.test(text) &&
-                    salary.unrealistic;
-
-            } else {
-
-                matched = pattern.keywords.some((keyword) =>
-                    normalized.includes(keyword.toLowerCase())
-                );
-
-            }
-
-            if (matched) {
-
-                score += pattern.points;
-
-                detectedPatterns.push(pattern);
-
-                findings.push({
-                    id: pattern.id,
-                    name: pattern.name,
-                    warning: pattern.warning,
-                    points: pattern.points
-                });
-
-            }
-
-        });
-
-
-        /* -----------------------------------------------
-           CONTACTS
-        ----------------------------------------------- */
-
-        const contacts = detectContacts(text);
-
-        if (
-            contacts.whatsapp &&
-            !detectedPatterns.some(
-                (item) => item.id === "whatsapp-only"
-            )
-        ) {
-
-            score += 5;
-
-            findings.push({
-                id: "whatsapp-contact",
-                name: "WhatsApp Contact",
-                warning:
-                    "WhatsApp communication is present. Verify the recruiter independently.",
-                points: 5
-            });
-
-        }
-
-
-        /* -----------------------------------------------
-           URL RISK
-        ----------------------------------------------- */
-
-        const suspiciousURLs = contacts.urls.filter((url) =>
-            /bit\.ly|tinyurl|t\.co|goo\.gl|shorturl|cutt\.ly/i.test(url)
-        );
-
-        if (suspiciousURLs.length > 0) {
-
-            score += 15;
-
-            findings.push({
-                id: "short-link",
-                name: "Shortened Link",
-                warning:
-                    "A shortened URL was detected. The final destination should be verified before opening.",
-                points: 15
-            });
-
-        }
-
-
-        /* -----------------------------------------------
-           PERSONAL DATA
-        ----------------------------------------------- */
-
-        const personalData = detectPersonalData(text);
-
-        const sensitiveAlreadyDetected =
-            detectedPatterns.some(
-                (item) => item.id === "sensitive-data"
-            );
-
-        if (
-            personalData.length > 0 &&
-            !sensitiveAlreadyDetected
-        ) {
-
-            score += 25;
-
-            findings.push({
-                id: "personal-data",
-                name: "Sensitive Personal Data",
-                warning:
-                    "Sensitive personal or financial information appears in the request.",
-                points: 25
-            });
-
-        }
-
-
-        /* -----------------------------------------------
-           SALARY
-        ----------------------------------------------- */
-
-        const salary = analyzeSalary(text);
-
-        if (
-            salary.unrealistic &&
-            !detectedPatterns.some(
-                (item) => item.id === "unrealistic-income"
-            )
-        ) {
-
-            score += 15;
-
-            findings.push({
-                id: "salary-risk",
-                name: "Salary Reality Warning",
-                warning:
-                    "The salary or income claim appears unusually high or guaranteed.",
-                points: 15
-            });
-
-        }
-
-
-        /* -----------------------------------------------
-           MULTI-SIGNAL BONUS
-        ----------------------------------------------- */
-
-        if (
-            /work\s*[- ]?\s*from\s*[- ]?\s*home|wfh/i.test(text) &&
-            salary.unrealistic &&
-            (
-                /no interview|without interview|direct selection/i.test(text)
-            )
-        ) {
-
-            score += 8;
-
-            findings.push({
-                id: "combined-risk",
-                name: "Multiple High-Risk Claims",
-                warning:
-                    "Work-from-home, high-income and weak-selection claims appear together.",
-                points: 8
-            });
-
-        }
-
-
-        /* -----------------------------------------------
-           COMPANY
-        ----------------------------------------------- */
-
-        const company = analyzeCompany(
-            text,
-            contacts
-        );
-
-
-        /* -----------------------------------------------
-           FINAL SCORE
-        ----------------------------------------------- */
-
-        score = clampScore(score);
-
-        let level;
-        let explanation;
-        let riskClass;
-
-        if (score < 30) {
-
-            level = "Low Risk";
-            riskClass = "low";
-
-            explanation =
-                "Few common warning indicators were detected. This does not prove that the opportunity is genuine, so verify the employer independently.";
-
-        } else if (score < 60) {
-
-            level = "Suspicious";
-            riskClass = "suspicious";
-
-            explanation =
-                "Several warning indicators were detected. Investigate the employer and avoid payments or unnecessary personal-data sharing until verification.";
-
-        } else {
-
-            level = "High Risk";
-            riskClass = "high";
-
-            explanation =
-                "Multiple strong warning indicators were detected. Do not send money, OTPs, UPI PINs or unnecessary financial information without independent verification.";
-
-        }
-
-
-        const result = {
-
-            score,
-            level,
-            riskClass,
-            explanation,
-
-            findings,
-            rules: findings,
-
-            contacts,
-            salary,
-            personalData,
-            company,
-
-            text,
-
-            timestamp: new Date().toISOString()
-
-        };
-
-        lastAnalysis = result;
-
-        renderAnalysis(result);
-
-        saveHistory(result);
-
-        updateDashboard();
-
-    }
-
-
-    /* =====================================================
-       10. RENDER ANALYSIS
-    ===================================================== */
-
-    function renderAnalysis(result) {
-
-        const {
-            score,
-            level,
-            riskClass,
-            explanation,
-            findings
-        } = result;
-
-
-        /* Score */
-
-        if (riskScore) {
-            riskScore.textContent = score;
-        }
-
-        if (riskLevel) {
-            riskLevel.textContent = level;
-        }
-
-        if (riskTitle) {
-            riskTitle.textContent = level;
-        }
-
-        if (riskPill) {
-            riskPill.textContent = level;
-        }
-
-        if (riskExplanation) {
-            riskExplanation.textContent = explanation;
-        }
-
-
-        /* Risk classes */
-
-        if (riskCard) {
-
-            riskCard.classList.remove(
-                "low",
-                "suspicious",
-                "high",
-                "risk-low",
-                "risk-suspicious",
-                "risk-high"
-            );
-
-            riskCard.classList.add(
-                riskClass,
-                `risk-${riskClass}`
-            );
-
-        }
-
-
-        /* Meter */
-
-        if (meterValue) {
-            meterValue.textContent = `${score}%`;
-        }
-
-        if (meterFill) {
-
-            requestAnimationFrame(() => {
-
-                meterFill.style.width = `${score}%`;
-
-            });
-
-        }
-
-
-        /* Warnings */
-
-        renderWarnings(findings);
-
-        /* Breakdown */
-
-        renderBreakdown(findings);
-
-        /* Explanation */
-
-        renderDetailedExplanation(result);
-
-        /* Recommendation */
-
-        renderRecommendation(result);
-
-        /* Contacts */
-
-        renderContacts(result);
-
-        /* Salary */
-
-        renderSalary(result);
-
-        /* Personal data */
-
-        renderPersonalData(result);
-
-        /* Company */
-
-        renderCompany(result);
-
-        /* Highlight */
-
-        renderHighlightedText(result.text, findings);
-
-        /* Action buttons */
-
-        ensureActionButtons();
-
-        /* Show result */
-
-        if (resultSection) {
-
-            resultSection.classList.remove("hidden");
-
-            resultSection.style.display = "block";
-
-        }
-
-    }
-
-
-    /* =====================================================
-       11. WARNINGS
-    ===================================================== */
-
-    function renderWarnings(findings) {
-
-        if (!warningList) return;
-
-        warningList.innerHTML = "";
-
-        if (!findings.length) {
-
-            const li = document.createElement("li");
-
-            li.textContent =
-                "No common suspicious warning signs were detected.";
-
-            warningList.appendChild(li);
-
-            return;
-
-        }
-
-        findings.forEach((finding) => {
-
-            const li = document.createElement("li");
-
-            li.className = "warning-item";
-
-            li.innerHTML = `
-                <span class="warning-item-icon">⚠</span>
-                <span>
-                    <strong>${escapeHTML(finding.name)}</strong>
-                    <br>
-                    ${escapeHTML(finding.warning)}
-                </span>
-            `;
-
-            warningList.appendChild(li);
-
-        });
-
-    }
-
-
-    /* =====================================================
-       12. RISK BREAKDOWN
-    ===================================================== */
-
-    function renderBreakdown(findings) {
-
-        if (!riskBreakdown) return;
-
-        riskBreakdown.innerHTML = "";
-
-        if (!findings.length) {
-
-            riskBreakdown.innerHTML =
-                `<p>No major suspicious patterns detected.</p>`;
-
-            return;
-
-        }
-
-        findings.forEach((finding) => {
-
-            const item =
-                document.createElement("div");
-
-            item.className =
-                "breakdown-item risk-breakdown-item";
-
-            const percentage =
-                Math.min(
-                    100,
-                    Math.round(
-                        (finding.points / 30) * 100
-                    )
-                );
-
-            item.innerHTML = `
-                <div class="breakdown-info">
-                    <span class="breakdown-name">
-                        ${escapeHTML(finding.name)}
-                    </span>
-
-                    <span class="breakdown-points">
-                        +${finding.points}
-                    </span>
-                </div>
-
-                <div class="breakdown-bar">
-                    <div
-                        class="breakdown-bar-fill"
-                        style="width:${percentage}%"
-                    ></div>
-                </div>
-            `;
-
-            riskBreakdown.appendChild(item);
-
-        });
-
-    }
-
-
-    /* =====================================================
-       13. DETAILED EXPLANATION
-    ===================================================== */
-
-    function renderDetailedExplanation(result) {
-
-        if (!detailedExplanation) return;
-
-        const names =
-            result.findings
-                .map((item) => item.name)
-                .join(", ");
-
-        if (!result.findings.length) {
-
-            detailedExplanation.textContent =
-                "AI JobGuard did not find the specific warning patterns checked by this version. This does not guarantee that the opportunity is genuine.";
-
-            return;
-
-        }
-
-        detailedExplanation.textContent =
-            `AI JobGuard detected ${result.findings.length} warning signal(s): ` +
-            `${names}. These patterns can sometimes be associated with ` +
-            `fraudulent or misleading job and internship offers. The result ` +
-            `is a risk assessment, not proof that an employer is fraudulent.`;
-
-    }
-
-
-    /* =====================================================
-       14. RECOMMENDATION
-    ===================================================== */
-
-    function renderRecommendation(result) {
-
-        if (!recommendation) return;
-
-        if (result.score >= 60) {
-
-            recommendation.textContent =
-                "⚠️ Recommendation: Do not send money, OTPs, UPI PINs, passwords or unnecessary financial information. Verify the employer through independent official sources.";
-
-        } else if (result.score >= 30) {
-
-            recommendation.textContent =
-                "⚠️ Recommendation: Research the employer, verify its official website and contact information, and avoid making payments before verification.";
-
-        } else {
-
-            recommendation.textContent =
-                "✅ No major warning signs were detected. Still verify the employer independently before accepting the opportunity.";
-
-        }
-
-    }
-
-
-    /* =====================================================
-       15. CONTACT ANALYSIS
-    ===================================================== */
-
-    function renderContacts(result) {
-
-        if (!contactAnalysis) return;
-
-        const c = result.contacts;
-
-        const rows = [];
-
-        if (c.phones.length) {
-
-            rows.push(`
-                <div class="analysis-row">
-                    <strong>📱 Phone</strong>
-                    <span>${escapeHTML(c.phones.join(", "))}</span>
-                </div>
-            `);
-
-        }
-
-        if (c.emails.length) {
-
-            rows.push(`
-                <div class="analysis-row">
-                    <strong>✉️ Email</strong>
-                    <span>${escapeHTML(c.emails.join(", "))}</span>
-                </div>
-            `);
-
-        }
-
-        if (c.personalEmails.length) {
-
-            rows.push(`
-                <div class="analysis-row">
-                    <strong>⚠️ Personal Email</strong>
-                    <span>${escapeHTML(c.personalEmails.join(", "))}</span>
-                </div>
-            `);
-
-        }
-
-        if (c.urls.length) {
-
-            rows.push(`
-                <div class="analysis-row">
-                    <strong>🔗 Links</strong>
-                    <span>${escapeHTML(c.urls.join(", "))}</span>
-                </div>
-            `);
-
-        }
-
-        if (c.upi.length) {
-
-            rows.push(`
-                <div class="analysis-row">
-                    <strong>💳 Possible UPI</strong>
-                    <span>${escapeHTML(c.upi.join(", "))}</span>
-                </div>
-            `);
-
-        }
-
-        if (c.whatsapp) {
-
-            rows.push(`
-                <div class="analysis-row">
-                    <strong>⚠️ WhatsApp</strong>
-                    <span>WhatsApp communication detected</span>
-                </div>
-            `);
-
-        }
-
-        if (!rows.length) {
-
-            rows.push(
-                "<p>No contact information detected.</p>"
-            );
-
-        }
-
-        contactAnalysis.innerHTML =
-            rows.join("");
-
-    }
-
-
-    /* =====================================================
-       16. SALARY ANALYSIS
-    ===================================================== */
-
-    function renderSalary(result) {
-
-        if (!salaryAnalysis) return;
-
-        const salary = result.salary;
-
-        if (!salary.amounts.length) {
-
-            salaryAnalysis.innerHTML =
-                "<p>No clear salary amount detected.</p>";
-
-            return;
-
-        }
-
-        const amounts =
-            escapeHTML(
-                salary.amounts.join(", ")
-            );
-
-        if (salary.unrealistic) {
-
-            salaryAnalysis.innerHTML = `
-                <p>
-                    <strong>Salary detected:</strong>
-                    ${amounts}
-                </p>
-
-                <p>
-                    ⚠️ The claim appears unusually high,
-                    guaranteed or unrealistic.
-                    Verify it through official employer sources.
-                </p>
-            `;
-
-        } else {
-
-            salaryAnalysis.innerHTML = `
-                <p>
-                    <strong>Salary detected:</strong>
-                    ${amounts}
-                </p>
-
-                <p>
-                    ℹ️ The amount alone is not proof of fraud.
-                    Verify the role and employer independently.
-                </p>
-            `;
-
-        }
-
-    }
-
-
-    /* =====================================================
-       17. PERSONAL DATA
-    ===================================================== */
-
-    function renderPersonalData(result) {
-
-        if (!personalDataWarning) return;
-
-        if (!result.personalData.length) {
-
-            personalDataWarning.innerHTML =
-                "<p>✓ No Aadhaar, PAN, bank, OTP, card or UPI PIN request detected.</p>";
-
-            return;
-
-        }
-
-        personalDataWarning.innerHTML = `
-            <p>
-                ⚠️ <strong>Sensitive information detected:</strong>
-                ${escapeHTML(result.personalData.join(", "))}
-            </p>
-
-            <p>
-                Never share OTPs, UPI PINs, passwords, card details
-                or unnecessary financial information with an unverified recruiter.
-            </p>
-        `;
-
-    }
-
-
-    /* =====================================================
-       18. COMPANY VERIFICATION
-    ===================================================== */
-
-    function renderCompany(result) {
-
-        const container =
-            document.getElementById("companyAnalysis");
-
-        if (!container) return;
-
-        const company = result.company;
-
-        container.innerHTML = `
-            <div class="analysis-row">
-                <strong>🏢 Company</strong>
-                <span>
-                    ${escapeHTML(
-                        company.companyName || "Not detected"
-                    )}
-                </span>
-            </div>
-
-            <div class="analysis-row">
-                <strong>🌐 Website</strong>
-                <span>
-                    ${
-                        company.website
-                            ? escapeHTML(company.website)
-                            : "Not detected"
-                    }
-                </span>
-            </div>
-
-            <div class="analysis-row">
-                <strong>✉️ Email Domain</strong>
-                <span>
-                    ${
-                        company.emailDomain
-                            ? escapeHTML(company.emailDomain)
-                            : "Not detected"
-                    }
-                </span>
-            </div>
-
-            <div class="analysis-row">
-                <strong>🔐 HTTPS</strong>
-                <span>
-                    ${
-                        company.website
-                            ? (
-                                company.httpsWebsite
-                                    ? "HTTPS detected"
-                                    : "HTTP / no HTTPS detected"
-                            )
-                            : "No website detected"
-                    }
-                </span>
-            </div>
-
-            <p class="company-note">
-                ℹ️ This is a basic client-side check.
-                AI JobGuard does not perform live company verification
-                or prove that a company is legitimate.
-            </p>
-        `;
-
-    }
-
-
-    /* =====================================================
-       19. HIGHLIGHT SUSPICIOUS TEXT
-    ===================================================== */
-
-    function renderHighlightedText(text, findings) {
-
-        if (!highlightedText) return;
-
-        let html = escapeHTML(text);
-
-        const words = [];
-
-        findings.forEach((finding) => {
-
-            const pattern =
-                suspiciousPatterns.find(
-                    (item) => item.id === finding.id
-                );
-
-            if (!pattern) return;
-
-            pattern.keywords.forEach((keyword) => {
-
-                words.push(keyword);
-
-            });
-
-        });
-
-        const uniqueWords =
-            unique(words)
-                .sort((a, b) => b.length - a.length);
-
-        uniqueWords.forEach((keyword) => {
-
-            const escaped =
-                escapeHTML(keyword)
-                    .replace(
-                        /[.*+?^${}()|[\]\\]/g,
-                        "\\$&"
-                    );
-
-            try {
-
-                const regex =
-                    new RegExp(
-                        `(${escaped})`,
-                        "gi"
-                    );
-
-                html =
-                    html.replace(
-                        regex,
-                        "<mark>$1</mark>"
-                    );
-
-            } catch (error) {
-                /* Ignore invalid highlight pattern */
-            }
-
-        });
-
-        highlightedText.innerHTML = html;
-
-    }
-
-
-    /* =====================================================
-       20. ANALYZE BUTTON
-    ===================================================== */
-
-    function analyzeJob() {
-
-        if (!jobDescription) return;
-
-        hideError();
-
-        const text =
-            jobDescription.value.trim();
-
-        if (!text) {
-
-            showError(
-                "Please paste a job or internship description first."
-            );
-
-            jobDescription.focus();
-
-            return;
-
-        }
-
-        if (text.length < 20) {
-
-            showError(
-                "Please provide a little more job information for a useful analysis."
-            );
-
-            jobDescription.focus();
-
-            return;
-
-        }
-
-        startLoading();
-
-        setTimeout(() => {
-
-            try {
-
-                performAnalysis(text);
-
-            } catch (error) {
-
-                console.error(
-                    "AI JobGuard analysis error:",
-                    error
-                );
-
-                showError(
-                    "Something went wrong while analyzing this job. Please try again."
-                );
-
-            } finally {
-
-                stopLoading();
-
-            }
-
-        }, 650);
-
-    }
-
-
-    /* =====================================================
-       21. LOADING
-    ===================================================== */
-
-    function startLoading() {
-
-        if (loadingArea) {
-            loadingArea.classList.remove("hidden");
-        }
-
-        if (analyzeButton) {
-            analyzeButton.disabled = true;
-        }
-
-        const messages = [
-            "Scanning job description...",
-            "Checking suspicious patterns...",
-            "Analyzing salary claims...",
-            "Checking contact information...",
-            "Detecting sensitive data...",
-            "Building explainable risk score..."
-        ];
-
-        let index = 0;
-
-        if (loadingText) {
-            loadingText.textContent = messages[0];
-        }
-
-        clearInterval(loadingTimer);
-
-        loadingTimer =
-            setInterval(() => {
-
-                index =
-                    (index + 1) %
-                    messages.length;
-
-                if (loadingText) {
-                    loadingText.textContent =
-                        messages[index];
-                }
-
-            }, 250);
-
-    }
-
-
-    function stopLoading() {
-
-        clearInterval(loadingTimer);
-
-        if (loadingArea) {
-            loadingArea.classList.add("hidden");
-        }
-
-        if (analyzeButton) {
-            analyzeButton.disabled = false;
-        }
-
-    }
-
-
-    /* =====================================================
-       22. SAMPLE BUTTONS
-    ===================================================== */
-
-    document
-        .querySelectorAll("[data-sample]")
-        .forEach((button) => {
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    const type =
-                        button.getAttribute(
-                            "data-sample"
-                        );
-
-                    if (!sampleJobs[type]) return;
-
-                    if (jobDescription) {
-
-                        jobDescription.value =
-                            sampleJobs[type];
-
-                        updateCharacterCount();
-
-                        hideError();
-
-                        jobDescription.focus();
-
-                    }
-
-                }
-            );
-
-        });
-
-
-    /* =====================================================
-       23. CLEAR ANALYZER
-    ===================================================== */
-
-    if (clearButton) {
-
-        clearButton.addEventListener(
-            "click",
-            () => {
-
-                if (jobDescription) {
-                    jobDescription.value = "";
-                }
-
-                updateCharacterCount();
-                hideError();
-
-                lastAnalysis = null;
-
-                if (resultSection) {
-
-                    resultSection.classList.add("hidden");
-
-                    resultSection.style.display =
-                        "none";
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       24. CHARACTER COUNT
-    ===================================================== */
-
-    if (jobDescription) {
-
-        jobDescription.addEventListener(
-            "input",
-            updateCharacterCount
-        );
-
-    }
-
-
-    /* =====================================================
-       25. HISTORY
-    ===================================================== */
-
-    function getHistory() {
-
-        try {
-
-            const data =
-                localStorage.getItem(
-                    HISTORY_KEY
-                );
-
-            if (!data) return [];
-
-            const parsed =
-                JSON.parse(data);
-
-            return Array.isArray(parsed)
-                ? parsed
-                : [];
-
-        } catch (error) {
-
-            console.warn(
-                "History could not be read:",
-                error
-            );
-
-            return [];
-
-        }
-
-    }
-
-
-    function saveHistory(result) {
-
-        try {
-
-            const history =
-                getHistory();
-
-            const entry = {
-
-                id:
-                    Date.now().toString(),
-
-                score:
-                    result.score,
-
-                level:
-                    result.level,
-
-                text:
-                    result.text.substring(
-                        0,
-                        160
-                    ),
-
-                findings:
-                    result.findings.length,
-
-                date:
-                    new Date().toLocaleString()
-
-            };
-
-            history.unshift(entry);
-
-            localStorage.setItem(
-                HISTORY_KEY,
-                JSON.stringify(
-                    history.slice(0, 25)
-                )
-            );
-
-        } catch (error) {
-
-            console.warn(
-                "History save error:",
-                error
-            );
-
-        }
-
-    }
-
-
-    function renderHistory(history) {
-
-        if (!historyList) return;
-
-        historyList.innerHTML = "";
-
-        if (!history.length) {
-
-            historyList.innerHTML =
-                "<p>No analyses yet.</p>";
-
-            return;
-
-        }
-
-        history.forEach((item) => {
-
-            const div =
-                document.createElement("div");
-
-            div.className =
-                "history-item";
-
-            div.innerHTML = `
-                <div>
-                    <strong>
-                        ${escapeHTML(item.level)}
-                    </strong>
-
-                    <span class="history-score">
-                        ${item.score}/100
-                    </span>
-                </div>
-
-                <p>
-                    ${escapeHTML(item.text)}
-                </p>
-
-                <small>
-                    ${escapeHTML(item.date)}
-                    · ${item.findings || 0} warning(s)
-                </small>
-
-                <button
-                    type="button"
-                    class="history-reanalyze"
-                    data-history-id="${escapeHTML(item.id)}"
-                >
-                    Re-analyze
-                </button>
-            `;
-
-            historyList.appendChild(div);
-
-        });
-
-    }
-
-
-    function updateDashboard() {
-
-        const history =
-            getHistory();
-
-        let high = 0;
-        let suspicious = 0;
-        let low = 0;
-
-        history.forEach((item) => {
-
-            if (item.level === "High Risk") {
-                high++;
-            } else if (item.level === "Suspicious") {
-                suspicious++;
-            } else {
-                low++;
-            }
-
-        });
-
-        if (totalScans) {
-            totalScans.textContent =
-                history.length;
-        }
-
-        if (highRiskCount) {
-            highRiskCount.textContent =
-                high;
-        }
-
-        if (suspiciousCount) {
-            suspiciousCount.textContent =
-                suspicious;
-        }
-
-        if (lowRiskCount) {
-            lowRiskCount.textContent =
-                low;
-        }
-
-        renderHistory(history);
-
-    }
-
-
-    /* =====================================================
-       26. HISTORY RE-ANALYZE
-    ===================================================== */
-
-    if (historyList) {
-
-        historyList.addEventListener(
-            "click",
-            (event) => {
-
-                const button =
-                    event.target.closest(
-                        ".history-reanalyze"
-                    );
-
-                if (!button) return;
-
-                const id =
-                    button.dataset.historyId;
-
-                const history =
-                    getHistory();
-
-                const item =
-                    history.find(
-                        (entry) =>
-                            entry.id === id
-                    );
-
-                if (!item) return;
-
-                if (jobDescription) {
-
-                    jobDescription.value =
-                        item.text;
-
-                    updateCharacterCount();
-
-                    analyzeJob();
-
-                    window.scrollTo({
-                        top: 0,
-                        behavior: "smooth"
-                    });
-
-                }
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       27. CLEAR HISTORY
-    ===================================================== */
-
-    if (clearHistory) {
-
-        clearHistory.addEventListener(
-            "click",
-            () => {
-
-                localStorage.removeItem(
-                    HISTORY_KEY
-                );
-
-                updateDashboard();
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       28. DOWNLOAD REPORT
-    ===================================================== */
-
-    function buildReport() {
-
-        if (!lastAnalysis) return "";
-
-        const r =
-            lastAnalysis;
-
-        const warnings =
-            r.findings.length
-                ? r.findings
-                    .map(
-                        (item) =>
-                            `- ${item.name}: ${item.warning} (+${item.points})`
-                    )
-                    .join("\n")
-                : "- No common warning patterns detected.";
-
-        return `
-AI JOBGUARD
-FAKE JOB & INTERNSHIP RISK REPORT
-=========================================
-
-Date:
-${new Date().toLocaleString()}
-
-Risk Score:
-${r.score}/100
-
-Risk Level:
-${r.level}
-
-EXPLANATION
------------------------------------------
-${r.explanation}
-
-WARNING SIGNALS
------------------------------------------
-${warnings}
-
-CONTACT ANALYSIS
------------------------------------------
-Phones: ${r.contacts.phones.join(", ") || "None"}
-Emails: ${r.contacts.emails.join(", ") || "None"}
-URLs: ${r.contacts.urls.join(", ") || "None"}
-Personal emails: ${r.contacts.personalEmails.join(", ") || "None"}
-WhatsApp: ${r.contacts.whatsapp ? "Detected" : "Not detected"}
-
-SALARY ANALYSIS
------------------------------------------
-${r.salary.amounts.join(", ") || "No clear salary detected"}
-${r.salary.unrealistic ? "Salary claim requires additional verification." : "No strong salary warning detected."}
-
-PERSONAL DATA
------------------------------------------
-${r.personalData.join(", ") || "No sensitive data keywords detected"}
-
-COMPANY CHECK
------------------------------------------
-Company: ${r.company.companyName || "Not detected"}
-Website: ${r.company.website || "Not detected"}
-Email domain: ${r.company.emailDomain || "Not detected"}
-HTTPS: ${
-            r.company.website
-                ? (
-                    r.company.httpsWebsite
-                        ? "Detected"
-                        : "Not detected"
-                )
-                : "Not available"
-        }
-
-JOB DESCRIPTION
------------------------------------------
-${r.text}
-
-SAFETY NOTICE
------------------------------------------
-AI JobGuard uses client-side rule-based pattern analysis.
-The result is NOT proof that an employer or opportunity
-is fraudulent.
-
-Always independently verify:
-- Official company website
-- Recruiter identity
-- Job posting source
-- Interview process
-- Payment requirements
-
-Never share OTPs, UPI PINs, passwords or unnecessary
-financial information with an unverified recruiter.
-
-If money has already been lost:
-Preserve transaction details and contact your bank/payment
-provider immediately. In India, use the official cybercrime
-reporting channels such as 1930 and cybercrime.gov.in.
-
-=========================================
-AI JOBGUARD
-`;
-
-    }
-
-
-    if (downloadReport) {
-
-        downloadReport.addEventListener(
-            "click",
-            () => {
-
-                if (!lastAnalysis) {
-
-                    showError(
-                        "Please analyze a job before downloading the report."
-                    );
-
-                    return;
-
-                }
-
-                const report =
-                    buildReport();
-
-                const blob =
-                    new Blob(
-                        [report],
-                        {
-                            type:
-                                "text/plain;charset=utf-8"
-                        }
-                    );
-
-                const url =
-                    URL.createObjectURL(blob);
-
-                const link =
-                    document.createElement("a");
-
-                link.href = url;
-
-                link.download =
-                    "AI-JobGuard-Risk-Report.txt";
-
-                document.body.appendChild(link);
-
-                link.click();
-
-                link.remove();
-
-                URL.revokeObjectURL(url);
-
-            }
-        );
-
-    }
-
-
-    /* =====================================================
-       29. COPY / SHARE BUTTONS
-    ===================================================== */
-
-    function getShareText() {
-
-        if (!lastAnalysis) {
-
-            return "AI JobGuard analysis is not available yet.";
-
-        }
-
-        return (
-            `AI JobGuard Analysis\n` +
-            `Risk Score: ${lastAnalysis.score}/100\n` +
-            `Risk Level: ${lastAnalysis.level}\n` +
-            `Warning Signals: ${lastAnalysis.findings.length}\n\n` +
-            `This is a rule-based risk assessment, not proof of fraud.`
-        );
-
-    }
-
-
-    async function copyAnalysis() {
-
-        const text =
-            getShareText();
-
-        try {
-
-            await navigator.clipboard.writeText(
-                text
-            );
-
-            showTemporaryMessage(
-                "Analysis copied to clipboard."
-            );
-
-        } catch (error) {
-
-            const area =
-                document.createElement("textarea");
-
-            area.value = text;
-
-            document.body.appendChild(area);
-
-            area.select();
-
-            document.execCommand("copy");
-
-            area.remove();
-
-            showTemporaryMessage(
-                "Analysis copied."
-            );
-
-        }
-
-    }
-
-
-    async function shareAnalysis() {
-
-        const text =
-            getShareText();
-
-        if (
-            navigator.share
-        ) {
-
-            try {
-
-                await navigator.share({
-                    title: "AI JobGuard Analysis",
-                    text
-                });
-
-                return;
-
-            } catch (error) {
-
-                if (
-                    error &&
-                    error.name === "AbortError"
-                ) {
-                    return;
-                }
-
-            }
-
-        }
-
-        await copyAnalysis();
-
-    }
-
-
-    function showTemporaryMessage(message) {
-
-        let toast =
-            document.getElementById(
-                "jobguardToast"
-            );
-
-        if (!toast) {
-
-            toast =
-                document.createElement("div");
-
-            toast.id =
-                "jobguardToast";
-
-            toast.style.position =
-                "fixed";
-
-            toast.style.bottom =
-                "24px";
-
-            toast.style.left =
-                "50%";
-
-            toast.style.transform =
-                "translateX(-50%)";
-
-            toast.style.zIndex =
-                "99999";
-
-            toast.style.padding =
-                "12px 18px";
-
-            toast.style.borderRadius =
-                "12px";
-
-            toast.style.background =
-                "rgba(8, 15, 35, 0.94)";
-
-            toast.style.color =
-                "#fff";
-
-            toast.style.border =
-                "1px solid rgba(255,255,255,.15)";
-
-            toast.style.boxShadow =
-                "0 10px 30px rgba(0,0,0,.3)";
-
-            document.body.appendChild(toast);
-
-        }
-
-        toast.textContent =
-            message;
-
-        clearTimeout(
-            toast._timer
-        );
-
-        toast._timer =
-            setTimeout(
-                () => {
-                    toast.remove();
-                },
-                2500
-            );
-
-    }
-
-
-    function ensureActionButtons() {
-
-        if (!resultSection) return;
-
-        let actions =
-            document.getElementById(
-                "analysisActions"
-            );
-
-        if (!actions) {
-
-            actions =
-                document.createElement("div");
-
-            actions.id =
-                "analysisActions";
-
-            actions.style.display =
-                "flex";
-
-            actions.style.flexWrap =
-                "wrap";
-
-            actions.style.gap =
-                "10px";
-
-            actions.style.marginTop =
-                "14px";
-
-            const download =
-                downloadReport;
-
-            if (download && download.parentElement) {
-
-                download.parentElement.appendChild(
-                    actions
-                );
-
-            } else {
-
-                resultSection.appendChild(
-                    actions
-                );
-
-            }
-
-        }
-
-        if (
-            !document.getElementById(
-                "copyAnalysis"
-            )
-        ) {
-
-            const copy =
-                document.createElement("button");
-
-            copy.id =
-                "copyAnalysis";
-
-            copy.type =
-                "button";
-
-            copy.className =
-                "outline-button";
-
-            copy.textContent =
-                "📋 Copy Analysis";
-
-            copy.addEventListener(
-                "click",
-                copyAnalysis
-            );
-
-            actions.appendChild(copy);
-
-        }
-
-        if (
-            !document.getElementById(
-                "shareAnalysis"
-            )
-        ) {
-
-            const share =
-                document.createElement("button");
-
-            share.id =
-                "shareAnalysis";
-
-            share.type =
-                "button";
-
-            share.className =
-                "outline-button";
-
-            share.textContent =
-                "↗ Share Analysis";
-
-            share.addEventListener(
-                "click",
-                shareAnalysis
-            );
-
-            actions.appendChild(share);
-
-        }
-
-    }
-
-
-    /* =====================================================
-       30. CHECKLIST PERSISTENCE
-    ===================================================== */
-
-    const checklist =
-        document.querySelectorAll(
-            'input[type="checkbox"]'
-        );
-
-    checklist.forEach((checkbox, index) => {
-
-        const key =
-            `aiJobGuardChecklist_${index}`;
-
-        try {
-
-            checkbox.checked =
-                localStorage.getItem(key) === "true";
-
-        } catch (error) {}
-
-        checkbox.addEventListener(
-            "change",
-            () => {
-
-                try {
-
-                    localStorage.setItem(
-                        key,
-                        String(checkbox.checked)
-                    );
-
-                } catch (error) {}
-
-            }
-        );
-
     });
 
+    return [...new Set(findings)];
+}
 
-    /* =====================================================
-       31. LANGUAGE SUPPORT
-    ===================================================== */
+/* =========================================================
+   SALARY ANALYSIS
+========================================================= */
 
-    const translations = {
+function analyzeSalary(text) {
+    const salaryPatterns = [
+        /₹\s*[\d,]+\s*(?:per month|monthly)/gi,
+        /rs\.?\s*[\d,]+\s*(?:per month|monthly)/gi,
+        /inr\s*[\d,]+\s*(?:per month|monthly)/gi,
+        /₹\s*[\d,]+/gi,
+        /\b\d+\s*(?:lakh|lakhs)\b/gi
+    ];
 
-        en: {
-            analyze: "Analyze Job",
-            clear: "Clear",
-            download: "Download Report",
-            low: "Low Risk",
-            suspicious: "Suspicious",
-            high: "High Risk"
-        },
+    const matches = [];
 
-        te: {
-            analyze: "విశ్లేషించండి",
-            clear: "క్లియర్",
-            download: "రిపోర్ట్ డౌన్‌లోడ్",
-            low: "తక్కువ ప్రమాదం",
-            suspicious: "అనుమానాస్పదం",
-            high: "అధిక ప్రమాదం"
-        },
-
-        hi: {
-            analyze: "विश्लेषण करें",
-            clear: "साफ करें",
-            download: "रिपोर्ट डाउनलोड करें",
-            low: "कम जोखिम",
-            suspicious: "संदिग्ध",
-            high: "उच्च जोखिम"
+    salaryPatterns.forEach((pattern) => {
+        const found = text.match(pattern);
+        if (found) {
+            matches.push(...found);
         }
+    });
 
-    };
+    const uniqueMatches = [...new Set(matches)];
 
-
-    function applyLanguage(language) {
-
-        const t =
-            translations[language] ||
-            translations.en;
-
-        if (analyzeButton) {
-            analyzeButton.textContent =
-                t.analyze;
-        }
-
-        if (clearButton) {
-            clearButton.textContent =
-                t.clear;
-        }
-
-        if (downloadReport) {
-            downloadReport.textContent =
-                t.download;
-        }
-
-        try {
-
-            localStorage.setItem(
-                LANGUAGE_KEY,
-                language
+    const unrealistic =
+        /\bguaranteed salary\b|\bguaranteed income\b|\b1 lakh\b|\b2 lakh\b|\b3 lakh\b/i.test(text) ||
+        uniqueMatches.some((value) => {
+            const number = parseInt(
+                value.replace(/[^\d]/g, ""),
+                10
             );
 
-        } catch (error) {}
+            return number >= 50000;
+        });
 
+    let message = "No obvious salary red flag detected.";
+
+    if (unrealistic) {
+        message =
+            "The salary/earning promise may be unusually high relative to the stated requirements. Verify the role, company and compensation independently.";
+    } else if (uniqueMatches.length) {
+        message =
+            "A salary amount was detected. Compare it with the role, experience requirements and the company's official job listing.";
     }
 
+    return {
+        matches: uniqueMatches,
+        unrealistic,
+        message
+    };
+}
 
-    if (languageSelector) {
+/* =========================================================
+   RULE MATCHING
+========================================================= */
 
-        languageSelector.addEventListener(
-            "change",
-            () => {
+function evaluateRules(text) {
+    const triggered = [];
 
-                applyLanguage(
-                    languageSelector.value
-                );
-
-            }
+    rules.forEach((rule) => {
+        const matched = rule.patterns.some((pattern) =>
+            pattern.test(text)
         );
 
-        let savedLanguage = "en";
-
-        try {
-
-            savedLanguage =
-                localStorage.getItem(
-                    LANGUAGE_KEY
-                ) || "en";
-
-        } catch (error) {}
-
-        if (
-            translations[savedLanguage]
-        ) {
-
-            languageSelector.value =
-                savedLanguage;
-
-            applyLanguage(
-                savedLanguage
-            );
-
+        if (matched) {
+            triggered.push({
+                ...rule
+            });
         }
+    });
 
+    return triggered;
+}
+
+/* =========================================================
+   RISK SCORE
+========================================================= */
+
+function calculateRisk(triggeredRules, personalData, contacts, salaryInfo) {
+    let score = 0;
+
+    triggeredRules.forEach((rule) => {
+        score += rule.points;
+    });
+
+    /*
+       Extra contextual adjustments
+    */
+
+    if (personalData.length >= 2) {
+        score += 10;
     }
 
+    if (contacts.phones.length && contacts.personalEmails.length) {
+        score += 5;
+    }
 
-    /* =====================================================
-       32. LIVE CYBER BACKGROUND
-    ===================================================== */
+    if (salaryInfo.unrealistic) {
+        score += 5;
+    }
 
-    function initCyberBackground() {
+    /*
+       Cap score to 100
+    */
 
-        if (!backgroundCanvas) return;
+    score = Math.min(100, Math.round(score));
 
-        const ctx =
-            backgroundCanvas.getContext("2d");
+    let level = "low";
 
-        if (!ctx) return;
+    if (score >= 60) {
+        level = "high";
+    } else if (score >= 30) {
+        level = "suspicious";
+    }
 
-        const reducedMotion =
-            window.matchMedia &&
-            window.matchMedia(
-                "(prefers-reduced-motion: reduce)"
-            ).matches;
+    return {
+        score,
+        level
+    };
+}
 
-        let width = 0;
-        let height = 0;
-        let particles = [];
+/* =========================================================
+   RISK BREAKDOWN
+========================================================= */
 
-        const isMobile =
-            window.innerWidth < 700;
-
-        const particleCount =
-            reducedMotion
-                ? 0
-                : isMobile
-                    ? 38
-                    : 75;
-
-
-        function resizeCanvas() {
-
-            const dpr =
-                Math.min(
-                    window.devicePixelRatio || 1,
-                    2
-                );
-
-            width =
-                window.innerWidth;
-
-            height =
-                window.innerHeight;
-
-            backgroundCanvas.width =
-                Math.floor(
-                    width * dpr
-                );
-
-            backgroundCanvas.height =
-                Math.floor(
-                    height * dpr
-                );
-
-            backgroundCanvas.style.width =
-                `${width}px`;
-
-            backgroundCanvas.style.height =
-                `${height}px`;
-
-            ctx.setTransform(
-                dpr,
-                0,
-                0,
-                dpr,
-                0,
-                0
-            );
-
-            createParticles();
-
+function buildBreakdown(triggeredRules) {
+    const categories = [
+        {
+            name: "Payment / Money",
+            keys: ["payment"]
+        },
+        {
+            name: "Selection Process",
+            keys: ["noInterview", "fakeSelection", "noExperience"]
+        },
+        {
+            name: "Salary Claims",
+            keys: ["unrealisticSalary"]
+        },
+        {
+            name: "Urgency",
+            keys: ["urgency"]
+        },
+        {
+            name: "Contact Signals",
+            keys: ["personalEmail", "whatsapp"]
+        },
+        {
+            name: "Sensitive Data",
+            keys: ["otp", "bank", "aadhaar", "pan", "upiPin"]
+        },
+        {
+            name: "Suspicious Language",
+            keys: ["suspiciousLanguage"]
         }
+    ];
 
+    return categories.map((category) => {
+        const matches = triggeredRules.filter((rule) =>
+            category.keys.includes(rule.key)
+        );
 
-        function createParticles() {
+        const points = matches.reduce(
+            (total, rule) => total + rule.points,
+            0
+        );
 
-            particles = [];
+        return {
+            name: category.name,
+            points: Math.min(points, 100),
+            max: 100
+        };
+    });
+}
 
-            for (
-                let i = 0;
-                i < particleCount;
-                i++
+/* =========================================================
+   RISK TEXT
+========================================================= */
+
+function getRiskInformation(level, score) {
+    if (level === "high") {
+        return {
+            title: "High Risk Job Posting",
+            pill: "HIGH RISK",
+            explanation:
+                `This posting contains multiple strong warning signs. The calculated risk score is ${score}/100. Do not send money, OTPs, UPI PINs or sensitive financial information based only on this posting.`,
+            recommendation:
+                "Stop before making any payment or sharing sensitive information. Verify the employer using its official website and independently obtained contact details."
+        };
+    }
+
+    if (level === "suspicious") {
+        return {
+            title: "Suspicious Job Posting",
+            pill: "SUSPICIOUS",
+            explanation:
+                `This posting contains several warning indicators. The calculated risk score is ${score}/100. Further verification is recommended before sharing personal information or proceeding.`,
+            recommendation:
+                "Verify the company, recruiter identity, official email domain, interview process and compensation before proceeding."
+        };
+    }
+
+    return {
+        title: "Lower Risk Pattern",
+        pill: "LOW RISK",
+        explanation:
+            `The posting contains fewer obvious warning indicators. The calculated risk score is ${score}/100. This does not prove that the employer is genuine.`,
+        recommendation:
+            "Continue to verify the employer independently. Apply through an official company careers page whenever possible."
+    };
+}
+
+/* =========================================================
+   WARNING LIST
+========================================================= */
+
+function renderWarnings(triggeredRules, personalData) {
+    if (!warningList) {
+        return;
+    }
+
+    const warnings = triggeredRules.map((rule) => ({
+        title: rule.name,
+        description: rule.warning
+    }));
+
+    personalData.forEach((item) => {
+        warnings.push({
+            title: "Sensitive Information Detected",
+            description:
+                `The text appears to mention ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
+        });
+    });
+
+    if (!warnings.length) {
+        warningList.innerHTML = `
+            <div class="empty-state">
+                No major warning patterns were detected in the submitted text.
+            </div>
+        `;
+        return;
+    }
+
+    warningList.innerHTML = warnings
+        .map(
+            (warning) => `
+                <div class="warning-item">
+                    <div class="warning-item-icon">!</div>
+
+                    <div class="warning-item-content">
+                        <div class="warning-item-title">
+                            ${escapeHTML(warning.title)}
+                        </div>
+
+                        <div class="warning-item-description">
+                            ${escapeHTML(warning.description)}
+                        </div>
+                    </div>
+                </div>
+            `
+        )
+        .join("");
+}
+
+/* =========================================================
+   BREAKDOWN RENDER
+========================================================= */
+
+function renderBreakdown(breakdown) {
+    if (!riskBreakdown) {
+        return;
+    }
+
+    riskBreakdown.innerHTML = breakdown
+        .map(
+            (item) => `
+                <div class="breakdown-item">
+                    <div class="breakdown-info">
+                        <div class="breakdown-name">
+                            ${escapeHTML(item.name)}
+                        </div>
+                    </div>
+
+                    <div class="breakdown-bar">
+                        <div
+                            class="breakdown-bar-fill"
+                            style="width: ${Math.min(item.points, 100)}%"
+                        ></div>
+                    </div>
+
+                    <div class="breakdown-points">
+                        ${item.points} pts
+                    </div>
+                </div>
+            `
+        )
+        .join("");
+}
+
+/* =========================================================
+   CONTACT ANALYSIS
+========================================================= */
+
+function renderContactAnalysis(contacts) {
+    if (!contactAnalysis) {
+        return;
+    }
+
+    const rows = [
+        {
+            label: "Phone numbers",
+            value: contacts.phones.length
+                ? contacts.phones.join(", ")
+                : "None detected"
+        },
+        {
+            label: "Email addresses",
+            value: contacts.emails.length
+                ? contacts.emails.join(", ")
+                : "None detected"
+        },
+        {
+            label: "Personal email",
+            value: contacts.personalEmails.length
+                ? contacts.personalEmails.join(", ")
+                : "None detected"
+        },
+        {
+            label: "URLs",
+            value: contacts.urls.length
+                ? contacts.urls.join(", ")
+                : "None detected"
+        },
+        {
+            label: "Possible UPI IDs",
+            value: contacts.upi.length
+                ? contacts.upi.join(", ")
+                : "None detected"
+        }
+    ];
+
+    contactAnalysis.innerHTML = `
+        <div class="analysis-rows">
+            ${rows
+                .map(
+                    (row) => `
+                        <div class="analysis-row">
+                            <span class="analysis-label">
+                                ${escapeHTML(row.label)}
+                            </span>
+
+                            <span class="analysis-value">
+                                ${escapeHTML(row.value)}
+                            </span>
+                        </div>
+                    `
+                )
+                .join("")}
+        </div>
+    `;
+}
+
+/* =========================================================
+   SALARY ANALYSIS
+========================================================= */
+
+function renderSalaryAnalysis(salaryInfo) {
+    if (!salaryAnalysis) {
+        return;
+    }
+
+    salaryAnalysis.innerHTML = `
+        <div class="analysis-rows">
+            <div class="analysis-row">
+                <span class="analysis-label">
+                    Salary mentions
+                </span>
+
+                <span class="analysis-value">
+                    ${
+                        salaryInfo.matches.length
+                            ? escapeHTML(salaryInfo.matches.join(", "))
+                            : "None detected"
+                    }
+                </span>
+            </div>
+
+            <div class="analysis-row">
+                <span class="analysis-label">
+                    Assessment
+                </span>
+
+                <span class="analysis-value">
+                    ${escapeHTML(salaryInfo.message)}
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+/* =========================================================
+   PERSONAL DATA WARNING
+========================================================= */
+
+function renderPersonalDataWarning(personalData) {
+    if (!personalDataWarning) {
+        return;
+    }
+
+    if (!personalData.length) {
+        personalDataWarning.classList.add("hidden");
+        personalDataWarning.innerHTML = "";
+        return;
+    }
+
+    personalDataWarning.classList.remove("hidden");
+
+    personalDataWarning.innerHTML = `
+        <strong>⚠ Sensitive information detected</strong>
+
+        <p>
+            The submitted text contains references to:
+            ${escapeHTML(personalData.join(", "))}.
+            Never share OTPs, UPI PINs, passwords or unnecessary financial
+            information with recruiters.
+        </p>
+    `;
+}
+
+/* =========================================================
+   TEXT HIGHLIGHTING
+========================================================= */
+
+function highlightText(text, triggeredRules) {
+    let result = escapeHTML(text);
+
+    const phrases = [];
+
+    triggeredRules.forEach((rule) => {
+        rule.patterns.forEach((pattern) => {
+            const source = pattern.source;
+
+            /*
+                Only use simple patterns for highlighting.
+                Complex regex groups are skipped to avoid
+                breaking the original text.
+            */
+
+            if (
+                !source.includes(".*") &&
+                !source.includes(".{") &&
+                !source.includes("\\d")
             ) {
-
-                particles.push({
-
-                    x:
-                        Math.random() *
-                        width,
-
-                    y:
-                        Math.random() *
-                        height,
-
-                    vx:
-                        (Math.random() - 0.5) *
-                        0.35,
-
-                    vy:
-                        (Math.random() - 0.5) *
-                        0.35,
-
-                    size:
-                        Math.random() *
-                            1.8 +
-                        0.5,
-
-                    alpha:
-                        Math.random() *
-                            0.45 +
-                        0.15
-
+                phrases.push({
+                    source,
+                    type:
+                        rule.points >= 25
+                            ? "risk"
+                            : "warning"
                 });
-
             }
+        });
+    });
 
+    /*
+       Common high-value phrases.
+    */
+
+    const commonRiskPhrases = [
+        "registration fee",
+        "processing fee",
+        "joining fee",
+        "security deposit",
+        "refundable fee",
+        "otp",
+        "upi pin",
+        "bank account",
+        "aadhaar",
+        "pan number",
+        "no interview",
+        "guaranteed salary",
+        "guaranteed income",
+        "pay",
+        "limited vacancies",
+        "apply immediately"
+    ];
+
+    commonRiskPhrases.forEach((phrase) => {
+        phrases.push({
+            source: phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            type:
+                /fee|otp|upi|bank|aadhaar|pan|no interview|guaranteed|pay/i.test(
+                    phrase
+                )
+                    ? "risk"
+                    : "warning"
+        });
+    });
+
+    /*
+       Longest first to reduce partial replacements.
+    */
+
+    phrases.sort(
+        (a, b) => b.source.length - a.source.length
+    );
+
+    const used = new Set();
+
+    phrases.forEach((item) => {
+        if (used.has(item.source.toLowerCase())) {
+            return;
         }
 
+        used.add(item.source.toLowerCase());
 
-        function draw() {
-
-            ctx.clearRect(
-                0,
-                0,
-                width,
-                height
+        try {
+            const regex = new RegExp(
+                `(${item.source})`,
+                "gi"
             );
 
+            result = result.replace(
+                regex,
+                `<mark class="highlight-${item.type}">$1</mark>`
+            );
+        } catch {
+            /* Ignore unsupported highlight pattern */
+        }
+    });
 
-            /* Particles */
+    return result;
+}
 
-            particles.forEach((particle) => {
+/* =========================================================
+   DETAILED EXPLANATION
+========================================================= */
 
+function buildDetailedExplanation(
+    triggeredRules,
+    contacts,
+    personalData,
+    salaryInfo
+) {
+    const paragraphs = [];
+
+    if (triggeredRules.length) {
+        paragraphs.push(
+            `The analyzer detected ${triggeredRules.length} warning pattern${
+                triggeredRules.length === 1 ? "" : "s"
+            } in the submitted job text.`
+        );
+    } else {
+        paragraphs.push(
+            "No major predefined warning patterns were detected in the submitted text."
+        );
+    }
+
+    if (contacts.personalEmails.length) {
+        paragraphs.push(
+            `A free email provider was detected: ${contacts.personalEmails.join(
+                ", "
+            )}. A personal email address does not automatically mean fraud, but applicants should verify the employer independently.`
+        );
+    }
+
+    if (salaryInfo.unrealistic) {
+        paragraphs.push(
+            "The compensation language contains a potentially unrealistic or guaranteed earning claim. Compare the compensation with the role and official company information."
+        );
+    }
+
+    if (personalData.length) {
+        paragraphs.push(
+            `Sensitive information references were found: ${personalData.join(
+                ", "
+            )}. Recruitment messages should not request OTPs, UPI PINs or unnecessary banking credentials.`
+        );
+    }
+
+    paragraphs.push(
+        "This is a rule-based client-side analysis. It is a warning system, not proof that a job is fraudulent or genuine."
+    );
+
+    return paragraphs
+        .map((paragraph) => `<p>${escapeHTML(paragraph)}</p>`)
+        .join("");
+}
+
+/* =========================================================
+   DISPLAY RESULT
+========================================================= */
+
+function displayResult(analysis) {
+    if (!resultSection) {
+        return;
+    }
+
+    const info = getRiskInformation(
+        analysis.risk.level,
+        analysis.risk.score
+    );
+
+    if (riskScore) {
+        riskScore.textContent = analysis.risk.score;
+    }
+
+    if (riskPill) {
+        riskPill.textContent = info.pill;
+
+        riskPill.classList.remove(
+            "risk-low",
+            "risk-suspicious",
+            "risk-high"
+        );
+
+        riskPill.classList.add(
+            `risk-${analysis.risk.level}`
+        );
+    }
+
+    if (riskTitle) {
+        riskTitle.textContent = info.title;
+    }
+
+    if (riskExplanation) {
+        riskExplanation.textContent = info.explanation;
+    }
+
+    if (meterValue) {
+        meterValue.textContent = `${analysis.risk.score}/100`;
+    }
+
+    if (meterFill) {
+        meterFill.style.width = `${analysis.risk.score}%`;
+    }
+
+    if (riskCard) {
+        riskCard.classList.remove(
+            "risk-low",
+            "risk-suspicious",
+            "risk-high"
+        );
+
+        riskCard.classList.add(
+            `risk-${analysis.risk.level}`
+        );
+    }
+
+    renderBreakdown(analysis.breakdown);
+
+    renderWarnings(
+        analysis.triggeredRules,
+        analysis.personalData
+    );
+
+    if (detailedExplanation) {
+        detailedExplanation.innerHTML =
+            analysis.detailedExplanation;
+    }
+
+    if (recommendation) {
+        recommendation.innerHTML = `
+            <div class="analysis-row">
+                <span class="analysis-label">
+                    Recommendation
+                </span>
+
+                <span class="analysis-value">
+                    ${escapeHTML(info.recommendation)}
+                </span>
+            </div>
+        `;
+    }
+
+    if (highlightedText) {
+        highlightedText.innerHTML = highlightText(
+            analysis.text,
+            analysis.triggeredRules
+        );
+    }
+
+    renderContactAnalysis(analysis.contacts);
+    renderSalaryAnalysis(analysis.salary);
+    renderPersonalDataWarning(analysis.personalData);
+
+    resultSection.classList.remove("hidden");
+
+    setTimeout(() => {
+        resultSection.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    }, 100);
+}
+
+/* =========================================================
+   ANALYSIS ENGINE
+========================================================= */
+
+function analyzeJob(text) {
+    const normalizedText = text.trim();
+
+    const triggeredRules = evaluateRules(
+        normalizedText
+    );
+
+    const contacts = detectContacts(
+        normalizedText
+    );
+
+    const personalData = detectPersonalData(
+        normalizedText
+    );
+
+    const salary = analyzeSalary(
+        normalizedText
+    );
+
+    const risk = calculateRisk(
+        triggeredRules,
+        personalData,
+        contacts,
+        salary
+    );
+
+    const breakdown = buildBreakdown(
+        triggeredRules
+    );
+
+    const detailedExplanation =
+        buildDetailedExplanation(
+            triggeredRules,
+            contacts,
+            personalData,
+            salary
+        );
+
+    return {
+        id: Date.now(),
+        text: normalizedText,
+        risk,
+        triggeredRules,
+        contacts,
+        personalData,
+        salary,
+        breakdown,
+        detailedExplanation,
+        createdAt: new Date().toISOString()
+    };
+}
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+function showLoading() {
+    if (loadingArea) {
+        loadingArea.classList.remove("hidden");
+    }
+
+    if (errorMessage) {
+        errorMessage.classList.add("hidden");
+    }
+
+    if (analyzeButton) {
+        analyzeButton.disabled = true;
+    }
+
+    const messages = [
+        translations[currentLanguage].analyzing,
+        translations[currentLanguage].processing,
+        translations[currentLanguage].generating
+    ];
+
+    let index = 0;
+
+    if (loadingText) {
+        loadingText.textContent = messages[0];
+    }
+
+    const interval = setInterval(() => {
+        index++;
+
+        if (index >= messages.length) {
+            clearInterval(interval);
+            return;
+        }
+
+        if (loadingText) {
+            loadingText.textContent = messages[index];
+        }
+    }, 550);
+
+    return interval;
+}
+
+function hideLoading(interval) {
+    if (interval) {
+        clearInterval(interval);
+    }
+
+    if (loadingArea) {
+        loadingArea.classList.add("hidden");
+    }
+
+    if (analyzeButton) {
+        analyzeButton.disabled = false;
+    }
+}
+
+/* =========================================================
+   HISTORY STORAGE
+========================================================= */
+
+function getHistory() {
+    try {
+        const saved = localStorage.getItem(
+            STORAGE_KEY
+        );
+
+        if (!saved) {
+            return [];
+        }
+
+        const parsed = JSON.parse(saved);
+
+        return Array.isArray(parsed)
+            ? parsed
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveHistory(analysis) {
+    const history = getHistory();
+
+    const item = {
+        id: analysis.id,
+        text: analysis.text,
+        score: analysis.risk.score,
+        level: analysis.risk.level,
+        createdAt: analysis.createdAt
+    };
+
+    history.unshift(item);
+
+    /*
+       Keep the latest 30 analyses.
+    */
+
+    const trimmed = history.slice(0, 30);
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(trimmed)
+    );
+}
+
+/* =========================================================
+   HISTORY RENDER
+========================================================= */
+
+function formatDate(dateString) {
+    try {
+        return new Date(dateString).toLocaleString(
+            undefined,
+            {
+                dateStyle: "medium",
+                timeStyle: "short"
+            }
+        );
+    } catch {
+        return dateString;
+    }
+}
+
+function getLevelLabel(level) {
+    if (level === "high") {
+        return "HIGH RISK";
+    }
+
+    if (level === "suspicious") {
+        return "SUSPICIOUS";
+    }
+
+    return "LOW RISK";
+}
+
+function renderHistory() {
+    const history = getHistory();
+
+    if (
+        totalScans &&
+        highRiskCount &&
+        suspiciousCount &&
+        lowRiskCount
+    ) {
+        totalScans.textContent = history.length;
+
+        highRiskCount.textContent =
+            history.filter(
+                (item) => item.level === "high"
+            ).length;
+
+        suspiciousCount.textContent =
+            history.filter(
+                (item) => item.level === "suspicious"
+            ).length;
+
+        lowRiskCount.textContent =
+            history.filter(
+                (item) => item.level === "low"
+            ).length;
+    }
+
+    if (!historyList) {
+        return;
+    }
+
+    if (!history.length) {
+        historyList.innerHTML = `
+            <div class="empty-state">
+                No analyses yet. Analyze a job posting to create history.
+            </div>
+        `;
+
+        return;
+    }
+
+    historyList.innerHTML = history
+        .map((item) => {
+            const preview = item.text
+                .replace(/\s+/g, " ")
+                .trim();
+
+            return `
+                <div class="history-item">
+                    <div>
+                        <div class="history-item-title">
+                            ${escapeHTML(
+                                preview.slice(0, 100)
+                            )}${preview.length > 100 ? "..." : ""}
+                        </div>
+
+                        <div class="history-item-date">
+                            ${escapeHTML(
+                                formatDate(item.createdAt)
+                            )}
+                        </div>
+                    </div>
+
+                    <div class="history-score risk-${escapeHTML(
+                        item.level
+                    )}">
+                        ${item.score}/100
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
+}
+
+/* =========================================================
+   ANALYSIS ACTION
+========================================================= */
+
+async function handleAnalyze() {
+    if (!jobDescription) {
+        return;
+    }
+
+    const text = jobDescription.value.trim();
+
+    if (!text) {
+        showError(
+            "Please paste a job or internship description first."
+        );
+
+        jobDescription.focus();
+
+        return;
+    }
+
+    if (text.length < 40) {
+        showError(
+            "Please provide a little more job information for a meaningful analysis."
+        );
+
+        jobDescription.focus();
+
+        return;
+    }
+
+    const loadingInterval = showLoading();
+
+    /*
+       Small delay makes the analysis feel deliberate
+       without requiring a backend.
+    */
+
+    await new Promise((resolve) =>
+        setTimeout(resolve, 1500)
+    );
+
+    try {
+        const analysis = analyzeJob(text);
+
+        currentAnalysis = analysis;
+
+        saveHistory(analysis);
+        displayResult(analysis);
+        renderHistory();
+
+        hideLoading(loadingInterval);
+    } catch (error) {
+        console.error(
+            "AI JobGuard analysis error:",
+            error
+        );
+
+        hideLoading(loadingInterval);
+
+        showError(
+            "Something went wrong while analyzing the text. Please try again."
+        );
+    }
+}
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+function showError(message) {
+    if (!errorMessage) {
+        return;
+    }
+
+    errorMessage.textContent = message;
+    errorMessage.classList.remove("hidden");
+}
+
+/* =========================================================
+   CHARACTER COUNT
+========================================================= */
+
+function updateCharacterCount() {
+    if (!jobDescription || !characterCount) {
+        return;
+    }
+
+    characterCount.textContent =
+        `${jobDescription.value.length.toLocaleString()} characters`;
+}
+
+/* =========================================================
+   CLEAR ANALYZER
+========================================================= */
+
+function clearAnalyzer() {
+    if (jobDescription) {
+        jobDescription.value = "";
+    }
+
+    updateCharacterCount();
+
+    if (errorMessage) {
+        errorMessage.classList.add("hidden");
+    }
+
+    if (resultSection) {
+        resultSection.classList.add("hidden");
+    }
+
+    currentAnalysis = null;
+
+    if (jobDescription) {
+        jobDescription.focus();
+    }
+}
+
+/* =========================================================
+   SAMPLE JOB LOADER
+========================================================= */
+
+function loadSample(type) {
+    if (!jobDescription) {
+        return;
+    }
+
+    const sample = sampleJobs[type];
+
+    if (!sample) {
+        return;
+    }
+
+    jobDescription.value = sample;
+
+    updateCharacterCount();
+
+    if (errorMessage) {
+        errorMessage.classList.add("hidden");
+    }
+
+    jobDescription.focus();
+
+    window.scrollTo({
+        top:
+            jobDescription.getBoundingClientRect().top +
+            window.scrollY -
+            120,
+        behavior: "smooth"
+    });
+}
+
+/* =========================================================
+   COPY ANALYSIS
+========================================================= */
+
+function buildAnalysisText(analysis) {
+    if (!analysis) {
+        return "";
+    }
+
+    const info = getRiskInformation(
+        analysis.risk.level,
+        analysis.risk.score
+    );
+
+    const warnings = analysis.triggeredRules
+        .map(
+            (rule) =>
+                `- ${rule.name}: ${rule.warning}`
+        )
+        .join("\n");
+
+    return `
+AI JOBGUARD — JOB RISK ANALYSIS
+
+Risk Score: ${analysis.risk.score}/100
+Risk Level: ${info.pill}
+
+${info.explanation}
+
+WARNING SIGNS:
+${warnings || "- No major warning patterns detected."}
+
+PERSONAL DATA:
+${
+    analysis.personalData.length
+        ? analysis.personalData.join(", ")
+        : "None detected"
+}
+
+CONTACTS:
+Phone: ${
+        analysis.contacts.phones.join(", ") ||
+        "None detected"
+    }
+Email: ${
+        analysis.contacts.emails.join(", ") ||
+        "None detected"
+    }
+URLs: ${
+        analysis.contacts.urls.join(", ") ||
+        "None detected"
+    }
+
+SALARY:
+${
+    analysis.salary.matches.join(", ") ||
+    "None detected"
+}
+
+RECOMMENDATION:
+${info.recommendation}
+
+DISCLAIMER:
+This is a client-side rule-based analysis. It is not proof that a job is fraudulent or genuine.
+    `.trim();
+}
+
+async function copyCurrentAnalysis() {
+    if (!currentAnalysis) {
+        showError(
+            "Analyze a job posting first."
+        );
+
+        return;
+    }
+
+    const text =
+        buildAnalysisText(currentAnalysis);
+
+    try {
+        await navigator.clipboard.writeText(text);
+
+        showTemporaryButtonText(
+            copyAnalysis,
+            "Copied ✓"
+        );
+    } catch {
+        fallbackCopy(text);
+
+        showTemporaryButtonText(
+            copyAnalysis,
+            "Copied ✓"
+        );
+    }
+}
+
+/* =========================================================
+   COPY FALLBACK
+========================================================= */
+
+function fallbackCopy(text) {
+    const textarea =
+        document.createElement("textarea");
+
+    textarea.value = text;
+
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+
+    document.body.appendChild(textarea);
+
+    textarea.select();
+
+    try {
+        document.execCommand("copy");
+    } catch {
+        /* Ignore clipboard fallback failure */
+    }
+
+    textarea.remove();
+}
+
+/* =========================================================
+   BUTTON TEMP TEXT
+========================================================= */
+
+function showTemporaryButtonText(
+    button,
+    temporaryText
+) {
+    if (!button) {
+        return;
+    }
+
+    const original = button.textContent;
+
+    button.textContent = temporaryText;
+
+    setTimeout(() => {
+        button.textContent = original;
+    }, 1800);
+}
+
+/* =========================================================
+   SHARE ANALYSIS
+========================================================= */
+
+async function shareCurrentAnalysis() {
+    if (!currentAnalysis) {
+        showError(
+            "Analyze a job posting first."
+        );
+
+        return;
+    }
+
+    const text =
+        buildAnalysisText(currentAnalysis);
+
+    if (
+        navigator.share &&
+        typeof navigator.share === "function"
+    ) {
+        try {
+            await navigator.share({
+                title: "AI JobGuard Analysis",
+                text
+            });
+
+            return;
+        } catch {
+            /*
+               User may cancel sharing.
+            */
+        }
+    }
+
+    try {
+        await navigator.clipboard.writeText(text);
+
+        showTemporaryButtonText(
+            shareAnalysis,
+            "Copied ✓"
+        );
+    } catch {
+        fallbackCopy(text);
+
+        showTemporaryButtonText(
+            shareAnalysis,
+            "Copied ✓"
+        );
+    }
+}
+
+/* =========================================================
+   DOWNLOAD REPORT
+========================================================= */
+
+function downloadCurrentReport() {
+    if (!currentAnalysis) {
+        showError(
+            "Analyze a job posting first."
+        );
+
+        return;
+    }
+
+    const analysis =
+        currentAnalysis;
+
+    const info = getRiskInformation(
+        analysis.risk.level,
+        analysis.risk.score
+    );
+
+    const warnings = analysis.triggeredRules.length
+        ? analysis.triggeredRules
+              .map(
+                  (rule) =>
+                      `<li><strong>${escapeHTML(
+                          rule.name
+                      )}</strong> — ${escapeHTML(
+                          rule.warning
+                      )}</li>`
+              )
+              .join("")
+        : "<li>No major warning patterns detected.</li>";
+
+    const reportHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<title>AI JobGuard Report</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 850px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #172033;
+        line-height: 1.6;
+    }
+
+    h1 {
+        color: #087ea4;
+    }
+
+    .score {
+        font-size: 42px;
+        font-weight: bold;
+    }
+
+    .level {
+        display: inline-block;
+        padding: 7px 12px;
+        border-radius: 20px;
+        background: #eef4ff;
+        font-weight: bold;
+    }
+
+    .box {
+        padding: 18px;
+        margin: 18px 0;
+        border: 1px solid #d8dfeb;
+        border-radius: 12px;
+    }
+
+    li {
+        margin-bottom: 8px;
+    }
+
+    .source {
+        white-space: pre-wrap;
+        background: #f5f7fb;
+        padding: 15px;
+        border-radius: 10px;
+    }
+
+    .disclaimer {
+        color: #68738a;
+        font-size: 12px;
+    }
+</style>
+
+</head>
+
+<body>
+
+<h1>AI JobGuard</h1>
+
+<p>AI-Powered Fake Job & Internship Detector</p>
+
+<div class="box">
+    <div>Risk Score</div>
+    <div class="score">
+        ${analysis.risk.score}/100
+    </div>
+
+    <div class="level">
+        ${escapeHTML(info.pill)}
+    </div>
+</div>
+
+<div class="box">
+    <h2>Explanation</h2>
+    <p>${escapeHTML(info.explanation)}</p>
+</div>
+
+<div class="box">
+    <h2>Warning Signs</h2>
+    <ul>
+        ${warnings}
+    </ul>
+</div>
+
+<div class="box">
+    <h2>Personal Data Detected</h2>
+
+    <p>
+        ${
+            analysis.personalData.length
+                ? escapeHTML(
+                      analysis.personalData.join(
+                          ", "
+                      )
+                  )
+                : "None detected"
+        }
+    </p>
+</div>
+
+<div class="box">
+    <h2>Recommendation</h2>
+
+    <p>
+        ${escapeHTML(info.recommendation)}
+    </p>
+</div>
+
+<div class="box">
+    <h2>Submitted Job Text</h2>
+
+    <div class="source">
+        ${escapeHTML(analysis.text)}
+    </div>
+</div>
+
+<p class="disclaimer">
+    This report is generated by a client-side,
+    rule-based analysis system. It is intended as a
+    safety aid and does not prove that a job is
+    fraudulent or genuine.
+</p>
+
+</body>
+</html>
+    `.trim();
+
+    const blob = new Blob(
+        [reportHTML],
+        {
+            type: "text/html"
+        }
+    );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const link =
+        document.createElement("a");
+
+    link.href = url;
+    link.download =
+        `AI-JobGuard-Report-${Date.now()}.html`;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    URL.revokeObjectURL(url);
+
+    showTemporaryButtonText(
+        downloadReport,
+        "Downloaded ✓"
+    );
+}
+
+/* =========================================================
+   CLEAR HISTORY
+========================================================= */
+
+function handleClearHistory() {
+    const history = getHistory();
+
+    if (!history.length) {
+        return;
+    }
+
+    const confirmed = window.confirm(
+        "Clear all AI JobGuard analysis history?"
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    localStorage.removeItem(
+        STORAGE_KEY
+    );
+
+    renderHistory();
+}
+
+/* =========================================================
+   LANGUAGE
+========================================================= */
+
+function handleLanguageChange() {
+    if (!languageSelector) {
+        return;
+    }
+
+    currentLanguage =
+        languageSelector.value || "en";
+
+    /*
+       Keep the analyzer functional while providing
+       language-aware loading/risk labels.
+    */
+
+    const status =
+        document.querySelector(
+            ".system-status"
+        );
+
+    if (status) {
+        const dot =
+            status.querySelector(
+                ".status-dot"
+            );
+
+        status.textContent =
+            translations[currentLanguage]
+                .systemOnline;
+
+        if (dot) {
+            status.prepend(dot);
+        }
+    }
+}
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+function setupNavigation() {
+    const links = $$(".nav-links a");
+
+    links.forEach((link) => {
+        link.addEventListener(
+            "click",
+            (event) => {
+                const href =
+                    link.getAttribute("href");
+
+                if (
+                    !href ||
+                    !href.startsWith("#")
+                ) {
+                    return;
+                }
+
+                const target =
+                    document.querySelector(
+                        href
+                    );
+
+                if (!target) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                target.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }
+        );
+    });
+}
+
+/* =========================================================
+   LIVE BACKGROUND
+========================================================= */
+
+function initBackground() {
+    const canvas =
+        document.getElementById(
+            "backgroundCanvas"
+        );
+
+    if (!canvas) {
+        return;
+    }
+
+    const ctx =
+        canvas.getContext("2d");
+
+    if (!ctx) {
+        return;
+    }
+
+    const particles = [];
+
+    const particleCount =
+        window.innerWidth < 700
+            ? 35
+            : 70;
+
+    function resizeCanvas() {
+        const ratio =
+            Math.min(
+                window.devicePixelRatio || 1,
+                2
+            );
+
+        canvas.width =
+            window.innerWidth * ratio;
+
+        canvas.height =
+            window.innerHeight * ratio;
+
+        canvas.style.width =
+            `${window.innerWidth}px`;
+
+        canvas.style.height =
+            `${window.innerHeight}px`;
+
+        ctx.setTransform(
+            ratio,
+            0,
+            0,
+            ratio,
+            0,
+            0
+        );
+    }
+
+    function createParticle() {
+        return {
+            x:
+                Math.random() *
+                window.innerWidth,
+
+            y:
+                Math.random() *
+                window.innerHeight,
+
+            radius:
+                Math.random() * 1.6 +
+                0.4,
+
+            speedX:
+                (Math.random() - 0.5) *
+                0.22,
+
+            speedY:
+                (Math.random() - 0.5) *
+                0.22,
+
+            alpha:
+                Math.random() * 0.5 +
+                0.15
+        };
+    }
+
+    for (
+        let i = 0;
+        i < particleCount;
+        i++
+    ) {
+        particles.push(
+            createParticle()
+        );
+    }
+
+    function animate() {
+        ctx.clearRect(
+            0,
+            0,
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        particles.forEach(
+            (particle) => {
                 particle.x +=
-                    particle.vx;
+                    particle.speedX;
 
                 particle.y +=
-                    particle.vy;
-
+                    particle.speedY;
 
                 if (
-                    particle.x < -10 ||
-                    particle.x > width + 10
+                    particle.x < -20 ||
+                    particle.x >
+                        window.innerWidth +
+                            20
                 ) {
-
-                    particle.vx *= -1;
-
+                    particle.x =
+                        Math.random() *
+                        window.innerWidth;
                 }
 
                 if (
-                    particle.y < -10 ||
-                    particle.y > height + 10
+                    particle.y < -20 ||
+                    particle.y >
+                        window.innerHeight +
+                            20
                 ) {
-
-                    particle.vy *= -1;
-
+                    particle.y =
+                        Math.random() *
+                        window.innerHeight;
                 }
-
 
                 ctx.beginPath();
 
                 ctx.arc(
                     particle.x,
                     particle.y,
-                    particle.size,
+                    particle.radius,
                     0,
                     Math.PI * 2
                 );
 
                 ctx.fillStyle =
-                    `rgba(83, 180, 255, ${particle.alpha})`;
+                    `rgba(32, 217, 255, ${particle.alpha})`;
 
                 ctx.fill();
-
-            });
-
-
-            /* Network lines */
-
-            const maxDistance =
-                width < 700
-                    ? 105
-                    : 135;
-
-            for (
-                let i = 0;
-                i < particles.length;
-                i++
-            ) {
-
-                for (
-                    let j = i + 1;
-                    j < particles.length;
-                    j++
-                ) {
-
-                    const a =
-                        particles[i];
-
-                    const b =
-                        particles[j];
-
-                    const dx =
-                        a.x - b.x;
-
-                    const dy =
-                        a.y - b.y;
-
-                    const distance =
-                        Math.sqrt(
-                            dx * dx +
-                            dy * dy
-                        );
-
-                    if (
-                        distance <
-                        maxDistance
-                    ) {
-
-                        const opacity =
-                            (1 -
-                                distance /
-                                maxDistance) *
-                            0.18;
-
-                        ctx.beginPath();
-
-                        ctx.moveTo(
-                            a.x,
-                            a.y
-                        );
-
-                        ctx.lineTo(
-                            b.x,
-                            b.y
-                        );
-
-                        ctx.strokeStyle =
-                            `rgba(70, 160, 255, ${opacity})`;
-
-                        ctx.lineWidth =
-                            0.6;
-
-                        ctx.stroke();
-
-                    }
-
-                }
-
             }
-
-
-            /* Moving scan line */
-
-            const scanY =
-                (Date.now() * 0.035) %
-                (height + 160) -
-                80;
-
-            const gradient =
-                ctx.createLinearGradient(
-                    0,
-                    scanY - 35,
-                    0,
-                    scanY + 35
-                );
-
-            gradient.addColorStop(
-                0,
-                "rgba(80,170,255,0)"
-            );
-
-            gradient.addColorStop(
-                0.5,
-                "rgba(80,170,255,0.08)"
-            );
-
-            gradient.addColorStop(
-                1,
-                "rgba(80,170,255,0)"
-            );
-
-            ctx.fillStyle =
-                gradient;
-
-            ctx.fillRect(
-                0,
-                scanY - 35,
-                width,
-                70
-            );
-
-
-            if (!reducedMotion) {
-                requestAnimationFrame(draw);
-            }
-
-        }
-
-
-        resizeCanvas();
-
-        window.addEventListener(
-            "resize",
-            resizeCanvas,
-            { passive: true }
         );
 
-        if (!reducedMotion) {
-            requestAnimationFrame(draw);
+        /*
+           Connect nearby particles.
+        */
+
+        for (
+            let i = 0;
+            i < particles.length;
+            i++
+        ) {
+            for (
+                let j = i + 1;
+                j < particles.length;
+                j++
+            ) {
+                const a =
+                    particles[i];
+
+                const b =
+                    particles[j];
+
+                const dx =
+                    a.x - b.x;
+
+                const dy =
+                    a.y - b.y;
+
+                const distance =
+                    Math.sqrt(
+                        dx * dx +
+                            dy * dy
+                    );
+
+                if (distance < 115) {
+                    const opacity =
+                        (1 -
+                            distance /
+                                115) *
+                        0.09;
+
+                    ctx.beginPath();
+
+                    ctx.moveTo(
+                        a.x,
+                        a.y
+                    );
+
+                    ctx.lineTo(
+                        b.x,
+                        b.y
+                    );
+
+                    ctx.strokeStyle =
+                        `rgba(57, 123, 255, ${opacity})`;
+
+                    ctx.lineWidth = 1;
+
+                    ctx.stroke();
+                }
+            }
         }
 
+        requestAnimationFrame(
+            animate
+        );
     }
 
+    resizeCanvas();
 
-    /* =====================================================
-       33. NAVIGATION ACTIVE STATE
-    ===================================================== */
-
-    function initNavigation() {
-
-        const navLinks =
-            document.querySelectorAll(
-                'a[href^="#"]'
-            );
-
-        navLinks.forEach((link) => {
-
-            link.addEventListener(
-                "click",
-                () => {
-
-                    navLinks.forEach(
-                        (item) =>
-                            item.classList.remove(
-                                "active"
-                            )
-                    );
-
-                    link.classList.add(
-                        "active"
-                    );
-
-                }
-            );
-
-        });
-
-    }
-
-
-    /* =====================================================
-       34. INITIALIZE
-    ===================================================== */
-
-    updateCharacterCount();
-
-    updateDashboard();
-
-    initCyberBackground();
-
-    initNavigation();
-
-    console.log(
-        "AI JobGuard loaded successfully."
+    window.addEventListener(
+        "resize",
+        resizeCanvas
     );
 
-});
+    animate();
+}
+
+/* =========================================================
+   EVENT LISTENERS
+========================================================= */
+
+function setupEventListeners() {
+    if (jobDescription) {
+        jobDescription.addEventListener(
+            "input",
+            updateCharacterCount
+        );
+    }
+
+    if (analyzeButton) {
+        analyzeButton.addEventListener(
+            "click",
+            handleAnalyze
+        );
+    }
+
+    if (clearButton) {
+        clearButton.addEventListener(
+            "click",
+            clearAnalyzer
+        );
+    }
+
+    if (downloadReport) {
+        downloadReport.addEventListener(
+            "click",
+            downloadCurrentReport
+        );
+    }
+
+    if (copyAnalysis) {
+        copyAnalysis.addEventListener(
+            "click",
+            copyCurrentAnalysis
+        );
+    }
+
+    if (shareAnalysis) {
+        shareAnalysis.addEventListener(
+            "click",
+            shareCurrentAnalysis
+        );
+    }
+
+    if (clearHistory) {
+        clearHistory.addEventListener(
+            "click",
+            handleClearHistory
+        );
+    }
+
+    if (languageSelector) {
+        languageSelector.addEventListener(
+            "change",
+            handleLanguageChange
+        );
+    }
+
+    $$(".sample-button").forEach(
+        (button) => {
+            button.addEventListener(
+                "click",
+                () => {
+                    const type =
+                        button.dataset
+                            .sample;
+
+                    loadSample(type);
+                }
+            );
+        }
+    );
+
+    /*
+       Keyboard shortcut:
+       Ctrl + Enter = Analyze
+    */
+
+    if (jobDescription) {
+        jobDescription.addEventListener(
+            "keydown",
+            (event) => {
+                if (
+                    event.ctrlKey &&
+                    event.key === "Enter"
+                ) {
+                    event.preventDefault();
+
+                    handleAnalyze();
+                }
+            }
+        );
+    }
+}
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+function init() {
+    updateCharacterCount();
+
+    renderHistory();
+
+    setupNavigation();
+
+    setupEventListeners();
+
+    initBackground();
+
+    /*
+       Hide result section initially.
+    */
+
+    if (resultSection) {
+        resultSection.classList.add(
+            "hidden"
+        );
+    }
+
+    /*
+       Make sure error/loading states
+       start hidden.
+    */
+
+    if (loadingArea) {
+        loadingArea.classList.add(
+            "hidden"
+        );
+    }
+
+    if (errorMessage) {
+        errorMessage.classList.add(
+            "hidden"
+        );
+    }
+
+    if (personalDataWarning) {
+        personalDataWarning.classList.add(
+            "hidden"
+        );
+    }
+
+    console.log(
+        "AI JobGuard initialized successfully."
+    );
+}
+
+/* =========================================================
+   START
+========================================================= */
+
+if (
+    document.readyState ===
+    "loading"
+) {
+    document.addEventListener(
+        "DOMContentLoaded",
+        init
+    );
+} else {
+    init();
+}
