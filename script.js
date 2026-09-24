@@ -1,1716 +1,663 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
+/* =========================================================
+   AI JOBGUARD — COMPLETE JAVASCRIPT
+   Rule-based Job & Internship Risk Analyzer
+========================================================= */
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+"use strict";
 
-    <meta
-        name="description"
-        content="AI JobGuard — AI-powered fake job and internship risk detector."
-    >
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
 
-    <meta
-        name="theme-color"
-        content="#050b18"
-    >
+const STORAGE_KEY = "aiJobGuardHistory";
+const MAX_TEXT_LENGTH = 10000;
 
-    <title>AI JobGuard — Smart Job Safety</title>
+let currentAnalysis = null;
+let scanTimer = null;
 
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
-</head>
+/* =========================================================
+   DOM HELPERS
+========================================================= */
 
-<body>
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
 
-<!-- =========================================================
-     BACKGROUND
-========================================================= -->
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
-<canvas id="backgroundCanvas"></canvas>
+/* =========================================================
+   DOM ELEMENTS
+========================================================= */
 
-<div class="background-overlay"></div>
+const jobDescription = $("#jobDescription");
+const characterCount = $("#characterCount");
 
+const clearButton = $("#clearButton");
+const analyzeButton = $("#analyzeButton");
 
-<!-- =========================================================
-     NAVBAR
-========================================================= -->
+const loadingArea = $("#loadingArea");
+const loadingText = $("#loadingText");
+const scanProgressFill = $(".scan-progress-fill");
 
-<header class="navbar">
+const errorMessage = $("#errorMessage");
 
-    <div class="nav-container">
+const resultSection = $("#resultSection");
+const riskCard = $("#riskCard");
 
-        <a
-            href="#analyzer"
-            class="brand"
-        >
+const riskScore = $("#riskScore");
+const riskPill = $("#riskPill");
+const riskTitle = $("#riskTitle");
+const riskExplanation = $("#riskExplanation");
 
-            <div class="brand-icon">
-                🛡️
-            </div>
+const meterValue = $("#meterValue");
+const meterFill = $("#meterFill");
 
-            <div class="brand-text">
-                <strong>AI JobGuard</strong>
-                <span>Smart Job Safety</span>
-            </div>
+const riskBreakdown = $("#riskBreakdown");
+const warningList = $("#warningList");
+const detailedExplanation = $("#detailedExplanation");
+const recommendation = $("#recommendation");
 
-        </a>
+const highlightedText = $("#highlightedText");
 
+const contactAnalysis = $("#contactAnalysis");
+const salaryAnalysis = $("#salaryAnalysis");
+const personalDataWarning = $("#personalDataWarning");
 
-        <nav class="nav-links">
+const downloadReport = $("#downloadReport");
+const copyAnalysis = $("#copyAnalysis");
+const shareAnalysis = $("#shareAnalysis");
 
-            <a href="#analyzer">
-                Analyzer
-            </a>
+const clearHistory = $("#clearHistory");
 
-            <a href="#how-it-works">
-                How It Works
-            </a>
+const totalScans = $("#totalScans");
+const highRiskCount = $("#highRiskCount");
+const suspiciousCount = $("#suspiciousCount");
+const lowRiskCount = $("#lowRiskCount");
+const historyList = $("#historyList");
 
-            <a href="#history">
-                History
-            </a>
+/* =========================================================
+   NEW — INSTANT RISK PREVIEW ELEMENTS
+========================================================= */
 
-            <a href="#safety">
-                Safety
-            </a>
+const instantRiskArea = $("#instantRiskArea");
+const instantRiskScore = $("#instantRiskScore");
+const instantRiskPill = $("#instantRiskPill");
+const instantRiskTitle = $("#instantRiskTitle");
+const instantRiskReason = $("#instantRiskReason");
+const instantRiskTips = $("#instantRiskTips");
+const instantRiskAvoid = $("#instantRiskAvoid");
 
-        </nav>
+/* =========================================================
+   NEW — SCORE EXPLANATION ELEMENTS
+========================================================= */
 
+const riskWhySection = $("#riskWhySection");
+const riskWhyList = $("#riskWhyList");
 
-        <div class="system-status">
+const doSection = $("#doSection");
+const doList = $("#doList");
 
-            <span class="status-dot"></span>
+const avoidSection = $("#avoidSection");
+const avoidList = $("#avoidList");
 
-            <span>
-                SYSTEM ONLINE
-            </span>
+const riskActionTitle = $("#riskActionTitle");
 
-        </div>
+/* =========================================================
+   SAMPLE JOBS
+========================================================= */
 
-    </div>
+const sampleJobs = {
+    low: `
+Software Development Intern
 
-</header>
+Company: TechNova Solutions
+Location: Hyderabad / Hybrid
+Duration: 6 months
 
+We are looking for a motivated software development intern to join our engineering team.
 
+Requirements:
+- Basic knowledge of Python or JavaScript
+- Good problem-solving skills
+- Willingness to learn
+- Ability to work with a team
 
-<!-- =========================================================
-     MAIN
-========================================================= -->
+Responsibilities:
+- Assist developers with software development tasks
+- Write and test basic code
+- Participate in code reviews
+- Attend weekly team meetings
 
-<main>
-
-
-<!-- =========================================================
-     HERO
-========================================================= -->
-
-<section class="hero-section">
-
-    <div class="hero-content">
-
-        <div class="hero-badge">
-            🛡️ AI JobGuard
-        </div>
-
-
-        <div class="section-label">
-            SMART JOB SAFETY
-        </div>
-
-
-        <h1>
-
-            <span>
-                Smart Job Safety
-            </span>
-
-            <strong>
-                Detect. Analyze. Protect.
-            </strong>
-
-        </h1>
-
-
-        <p class="hero-description">
-
-            Analyze job and internship opportunities for
-            suspicious patterns, payment requests,
-            unrealistic promises, sensitive information
-            requests and other common recruitment warning
-            signals.
-
-        </p>
-
-
-        <!-- HERO STATS -->
-
-        <div class="hero-stats">
-
-            <div class="hero-stat">
-
-                <div class="hero-stat-value">
-                    0–100
-                </div>
-
-                <div class="hero-stat-label">
-                    Risk Score
-                </div>
-
-            </div>
-
-
-            <div class="hero-stat">
-
-                <div class="hero-stat-value">
-                    15+
-                </div>
-
-                <div class="hero-stat-label">
-                    Risk Signals
-                </div>
-
-            </div>
-
-
-            <div class="hero-stat">
-
-                <div class="hero-stat-value">
-                    3
-                </div>
-
-                <div class="hero-stat-label">
-                    Risk Levels
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     ANALYZER
-========================================================= -->
-
-<section
-    id="analyzer"
-    class="section analyzer-section"
->
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            JOB SAFETY ANALYZER
-        </div>
-
-        <h2>
-            Analyze a Job Opportunity
-        </h2>
-
-        <p>
-            Paste a job or internship description
-            and AI JobGuard will analyze its
-            risk signals.
-        </p>
-
-    </div>
-
-
-
-    <!-- ANALYZER CARD -->
-
-    <div class="analyzer-card">
-
-        <div class="analyzer-card-header">
-
-            <div>
-
-                <h3>
-                    Job / Internship Description
-                </h3>
-
-                <p>
-                    Paste the complete job posting
-                    for a more meaningful analysis.
-                </p>
-
-            </div>
-
-
-            <div class="scanner-status">
-
-                <span class="status-dot"></span>
-
-                READY TO SCAN
-
-            </div>
-
-        </div>
-
-
-
-        <!-- TEXTAREA -->
-
-        <div class="textarea-wrapper">
-
-            <textarea
-                id="jobDescription"
-                maxlength="10000"
-                placeholder="Paste the job or internship description here..."
-                spellcheck="false"
-            ></textarea>
-
-
-            <div class="textarea-footer">
-
-                <span id="characterCount">
-                    0 / 10000
-                </span>
-
-                <button
-                    type="button"
-                    id="clearButton"
-                    class="secondary-button"
-                >
-                    Clear
-                </button>
-
-            </div>
-
-        </div>
-
-
-
-        <!-- SAMPLE JOBS -->
-
-        <div class="sample-section">
-
-            <div class="sample-title">
-                Try a sample:
-            </div>
-
-
-            <div class="sample-buttons">
-
-                <button
-                    type="button"
-                    class="sample-button"
-                    data-sample="low"
-                >
-                    Genuine Sample
-                </button>
-
-
-                <button
-                    type="button"
-                    class="sample-button"
-                    data-sample="medium"
-                >
-                    Suspicious Sample
-                </button>
-
-
-                <button
-                    type="button"
-                    class="sample-button"
-                    data-sample="high"
-                >
-                    Fake Job Sample
-                </button>
-
-            </div>
-
-        </div>
-
-
-
-        <!-- ANALYZE BUTTON -->
-
-        <button
-            type="button"
-            id="analyzeButton"
-            class="analyze-button"
-        >
-
-            <span>
-                🔍
-            </span>
-
-            Analyze Opportunity
-
-        </button>
-
-
-
-        <!-- ERROR -->
-
-        <div
-            id="errorMessage"
-            class="error-message hidden"
-        ></div>
-
-
-
-        <!-- =================================================
-             LIVE SCANNING
-        ================================================== -->
-
-        <div
-            id="loadingArea"
-            class="loading-area hidden"
-        >
-
-            <div class="scanner-loader-card">
-
-                <div class="scanner-animation">
-
-                    <div class="scanner-ring"></div>
-
-                    <div class="scanner-ring scanner-ring-two"></div>
-
-                    <div class="scanner-core">
-                        🛡️
-                    </div>
-
-                </div>
-
-
-                <div
-                    id="loadingText"
-                    class="loading-content"
-                >
-
-                    <strong>
-                        🔍 SCANNING JOB POSTING...
-                    </strong>
-
-                </div>
-
-
-                <div class="scan-progress">
-
-                    <div
-                        class="scan-progress-fill"
-                    ></div>
-
-                </div>
-
-
-                <div class="scan-steps">
-
-                    <div class="scan-step">
-                        Reading job description...
-                    </div>
-
-                    <div class="scan-step">
-                        Detecting payment requests...
-                    </div>
-
-                    <div class="scan-step">
-                        Checking personal & financial data...
-                    </div>
-
-                    <div class="scan-step">
-                        Analyzing salary claims...
-                    </div>
-
-                    <div class="scan-step">
-                        Checking urgency & selection patterns...
-                    </div>
-
-                    <div class="scan-step">
-                        Analyzing recruiter contact signals...
-                    </div>
-
-                    <div class="scan-step">
-                        Calculating risk indicators...
-                    </div>
-
-                    <div class="scan-step">
-                        Preparing explainable results...
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     RESULT SECTION
-========================================================= -->
-
-<section
-    id="resultSection"
-    class="section result-section hidden"
->
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            ANALYSIS COMPLETE
-        </div>
-
-        <h2>
-            Job Safety Results
-        </h2>
-
-        <p>
-            Your result is calculated from the
-            detected risk signals in the submitted
-            job posting.
-        </p>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         MAIN RISK CARD
-    ====================================================== -->
-
-    <div
-        id="riskCard"
-        class="risk-card"
-    >
-
-        <div class="risk-card-top">
-
-            <div class="risk-score-area">
-
-                <div class="risk-score-label">
-                    RISK SCORE
-                </div>
-
-                <div
-                    id="riskScore"
-                    class="risk-score"
-                >
-                    0
-                </div>
-
-                <div class="risk-score-total">
-                    /100
-                </div>
-
-            </div>
-
-
-            <div class="risk-status-area">
-
-                <div
-                    id="riskPill"
-                    class="risk-pill"
-                >
-                    LOW RISK
-                </div>
-
-                <h3 id="riskTitle">
-                    Lower Risk Pattern
-                </h3>
-
-                <p id="riskExplanation">
-                    Analysis result will appear here.
-                </p>
-
-            </div>
-
-        </div>
-
-
-
-        <!-- RISK METER -->
-
-        <div class="risk-meter">
-
-            <div class="risk-meter-header">
-
-                <span>
-                    Overall Risk
-                </span>
-
-                <strong id="meterValue">
-                    0/100
-                </strong>
-
-            </div>
-
-
-            <div class="meter-track">
-
-                <div
-                    id="meterFill"
-                    class="meter-fill"
-                    style="width:0%"
-                ></div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         DYNAMIC RISK SCORE / CALCULATION AREA
-         JS WILL POPULATE THIS
-    ====================================================== -->
-
-    <div
-        id="riskCalculation"
-        class="result-panel risk-calculation-panel"
-    ></div>
-
-
-
-    <!-- =====================================================
-         DYNAMIC RISK GUIDANCE
-         LOW / SUSPICIOUS / HIGH BASED
-    ====================================================== -->
-
-    <div
-        id="riskGuidance"
-        class="result-panel risk-guidance-panel"
-    ></div>
-
-
-
-    <!-- =====================================================
-         RISK BREAKDOWN
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    SCORE ANALYSIS
-                </div>
-
-                <h3>
-                    Risk Breakdown
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div id="riskBreakdown"></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         WARNING SIGNS
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    DETECTED SIGNALS
-                </div>
-
-                <h3>
-                    Warning Signs
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div id="warningList"></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         WHY RISKY
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    EXPLANATION
-                </div>
-
-                <h3>
-                    Why This May Be Risky
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div
-            id="detailedExplanation"
-            class="detailed-explanation"
-        ></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         SAFETY RECOMMENDATION
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    SAFETY GUIDANCE
-                </div>
-
-                <h3>
-                    Safety Recommendation
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div
-            id="recommendation"
-            class="recommendation-box"
-        ></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         HIGHLIGHTED TEXT
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    TEXT ANALYSIS
-                </div>
-
-                <h3>
-                    Suspicious Text Highlights
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div
-            id="highlightedText"
-            class="highlighted-text"
-        ></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         CONTACT ANALYSIS
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    RECRUITER SIGNALS
-                </div>
-
-                <h3>
-                    Contact & Link Analysis
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div id="contactAnalysis"></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         SALARY ANALYSIS
-    ====================================================== -->
-
-    <div class="result-panel">
-
-        <div class="result-panel-header">
-
-            <div>
-
-                <div class="section-label">
-                    COMPENSATION CHECK
-                </div>
-
-                <h3>
-                    Salary & Payment Analysis
-                </h3>
-
-            </div>
-
-        </div>
-
-
-        <div id="salaryAnalysis"></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         PERSONAL DATA WARNING
-    ====================================================== -->
-
-    <div
-        id="personalDataWarning"
-        class="personal-data-warning hidden"
-    ></div>
-
-
-
-    <!-- =====================================================
-         REPORT ACTIONS
-    ====================================================== -->
-
-    <div class="result-actions">
-
-        <button
-            type="button"
-            id="downloadReport"
-            class="result-action-button"
-        >
-            📄 Download Report
-        </button>
-
-
-        <button
-            type="button"
-            id="copyAnalysis"
-            class="result-action-button"
-        >
-            📋 Copy Analysis
-        </button>
-
-
-        <button
-            type="button"
-            id="shareAnalysis"
-            class="result-action-button"
-        >
-            🔗 Share Analysis
-        </button>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     HOW IT WORKS
-========================================================= -->
-
-<section
-    id="how-it-works"
-    class="section"
->
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            HOW IT WORKS
-        </div>
-
-        <h2>
-            From Job Text to Safety Insight
-        </h2>
-
-        <p>
-            AI JobGuard uses explainable,
-            rule-based analysis to identify
-            common recruitment warning signals.
-        </p>
-
-    </div>
-
-
-    <div class="process-grid">
-
-        <div class="process-card">
-
-            <div class="process-number">
-                01
-            </div>
-
-            <div class="process-icon">
-                📄
-            </div>
-
-            <h3>
-                Paste
-            </h3>
-
-            <p>
-                Paste the job or internship
-                description into the analyzer.
-            </p>
-
-        </div>
-
-
-        <div class="process-card">
-
-            <div class="process-number">
-                02
-            </div>
-
-            <div class="process-icon">
-                🔍
-            </div>
-
-            <h3>
-                Analyze
-            </h3>
-
-            <p>
-                The system checks payment,
-                salary, contact and selection
-                patterns.
-            </p>
-
-        </div>
-
-
-        <div class="process-card">
-
-            <div class="process-number">
-                03
-            </div>
-
-            <div class="process-icon">
-                📊
-            </div>
-
-            <h3>
-                Calculate
-            </h3>
-
-            <p>
-                Detected signals contribute to
-                a 0–100 risk score.
-            </p>
-
-        </div>
-
-
-        <div class="process-card">
-
-            <div class="process-number">
-                04
-            </div>
-
-            <div class="process-icon">
-                🛡️
-            </div>
-
-            <h3>
-                Protect
-            </h3>
-
-            <p>
-                Receive explainable reasons
-                and safety recommendations.
-            </p>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     AWARENESS
-========================================================= -->
-
-<section class="section awareness-section">
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            AWARENESS
-        </div>
-
-        <h2>
-            Common Job Scam Signals
-        </h2>
-
-        <p>
-            Watch for these warning patterns
-            when evaluating job opportunities.
-        </p>
-
-    </div>
-
-
-    <div class="awareness-grid">
-
-        <div class="awareness-card">
-
-            <div class="awareness-icon">
-                💳
-            </div>
-
-            <div class="awareness-tag">
-                HIGH ALERT
-            </div>
-
-            <h3>
-                Payment Requests
-            </h3>
-
-            <p>
-                Be cautious when a recruiter
-                asks for registration,
-                processing or joining fees.
-            </p>
-
-        </div>
-
-
-        <div class="awareness-card">
-
-            <div class="awareness-icon">
-                💰
-            </div>
-
-            <div class="awareness-tag">
-                VERIFY
-            </div>
-
-            <h3>
-                Unrealistic Salary
-            </h3>
-
-            <p>
-                Compare unusually high or
-                guaranteed compensation with
-                the actual role requirements.
-            </p>
-
-        </div>
-
-
-        <div class="awareness-card">
-
-            <div class="awareness-icon">
-                ⏱️
-            </div>
-
-            <div class="awareness-tag">
-                CAUTION
-            </div>
-
-            <h3>
-                Urgency
-            </h3>
-
-            <p>
-                Pressure to pay or accept an
-                offer immediately should be
-                independently verified.
-            </p>
-
-        </div>
-
-
-        <div class="awareness-card">
-
-            <div class="awareness-icon">
-                🔐
-            </div>
-
-            <div class="awareness-tag">
-                PROTECT
-            </div>
-
-            <h3>
-                Sensitive Data
-            </h3>
-
-            <p>
-                Never share OTPs, UPI PINs,
-                passwords or unnecessary
-                banking credentials.
-            </p>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     COMPARISON
-========================================================= -->
-
-<section class="section comparison-section">
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            QUICK CHECK
-        </div>
-
-        <h2>
-            What to Look For
-        </h2>
-
-    </div>
-
-
-    <div class="comparison-card">
-
-        <div class="comparison-row comparison-header">
-
-            <div class="comparison-label">
-                Signal
-            </div>
-
-            <div>
-                Safer Pattern
-            </div>
-
-            <div>
-                Warning Pattern
-            </div>
-
-        </div>
-
-
-        <div class="comparison-row">
-
-            <div class="comparison-label">
-                Interview
-            </div>
-
-            <div>
-                Clear interview process
-            </div>
-
-            <div>
-                Instant selection / no interview
-            </div>
-
-        </div>
-
-
-        <div class="comparison-row">
-
-            <div class="comparison-label">
-                Payment
-            </div>
-
-            <div>
-                No payment required
-            </div>
-
-            <div>
-                Registration / processing fee
-            </div>
-
-        </div>
-
-
-        <div class="comparison-row">
-
-            <div class="comparison-label">
-                Salary
-            </div>
-
-            <div>
-                Role-appropriate compensation
-            </div>
-
-            <div>
-                Guaranteed / unusual claims
-            </div>
-
-        </div>
-
-
-        <div class="comparison-row">
-
-            <div class="comparison-label">
-                Contact
-            </div>
-
-            <div>
-                Official company channels
-            </div>
-
-            <div>
-                Unverified personal contacts
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     HISTORY
-========================================================= -->
-
-<section
-    id="history"
-    class="section history-section"
->
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            ANALYSIS HISTORY
-        </div>
-
-        <h2>
-            Your Recent Checks
-        </h2>
-
-        <p>
-            Analysis history is stored locally
-            in your browser.
-        </p>
-
-    </div>
-
-
-
-    <!-- HISTORY STATS -->
-
-    <div class="history-stats">
-
-        <div class="history-stat-card">
-
-            <span>
-                Total Analyses
-            </span>
-
-            <strong id="totalScans">
-                0
-            </strong>
-
-        </div>
-
-
-        <div class="history-stat-card">
-
-            <span>
-                High Risk
-            </span>
-
-            <strong id="highRiskCount">
-                0
-            </strong>
-
-        </div>
-
-
-        <div class="history-stat-card">
-
-            <span>
-                Suspicious
-            </span>
-
-            <strong id="suspiciousCount">
-                0
-            </strong>
-
-        </div>
-
-
-        <div class="history-stat-card">
-
-            <span>
-                Low Risk
-            </span>
-
-            <strong id="lowRiskCount">
-                0
-            </strong>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- HISTORY CARD -->
-
-    <div class="history-card">
-
-        <div class="history-card-header">
-
-            <div>
-
-                <h3>
-                    Recent Analyses
-                </h3>
-
-                <p>
-                    Your latest scanned job
-                    opportunities.
-                </p>
-
-            </div>
-
-
-            <button
-                type="button"
-                id="clearHistory"
-                class="secondary-button"
-            >
-                Clear History
-            </button>
-
-        </div>
-
-
-        <div id="historyList">
-
-            <div class="empty-state">
-                No analyses yet. Analyze a job
-                posting to create history.
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     SAFETY
-========================================================= -->
-
-<section
-    id="safety"
-    class="section safety-section"
->
-
-    <div class="section-heading">
-
-        <div class="section-label">
-            STAY SAFE
-        </div>
-
-        <h2>
-            Job Safety Checklist
-        </h2>
-
-        <p>
-            Use these checks before accepting
-            an unfamiliar job or internship.
-        </p>
-
-    </div>
-
-
-
-    <div class="safety-layout">
-
-        <!-- CHECKLIST -->
-
-        <div class="safety-card">
-
-            <div class="safety-card-heading">
-
-                <span>
-                    🛡️
-                </span>
-
-                <h3>
-                    Before You Apply
-                </h3>
-
-            </div>
-
-
-            <div class="safety-checklist">
-
-                <div class="check-item">
-
-                    <span class="check-icon">
-                        ✓
-                    </span>
-
-                    <span>
-                        Verify the company independently.
-                    </span>
-
-                </div>
-
-
-                <div class="check-item">
-
-                    <span class="check-icon">
-                        ✓
-                    </span>
-
-                    <span>
-                        Confirm that no payment is required.
-                    </span>
-
-                </div>
-
-
-                <div class="check-item">
-
-                    <span class="check-icon">
-                        ✓
-                    </span>
-
-                    <span>
-                        Look for a clear interview process.
-                    </span>
-
-                </div>
-
-
-                <div class="check-item">
-
-                    <span class="check-icon">
-                        ✓
-                    </span>
-
-                    <span>
-                        Check whether salary and responsibilities are realistic.
-                    </span>
-
-                </div>
-
-
-                <div class="check-item">
-
-                    <span class="check-icon">
-                        ✓
-                    </span>
-
-                    <span>
-                        Never share OTPs, UPI PINs or passwords.
-                    </span>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-
-        <!-- VERIFICATION -->
-
-        <div class="safety-card">
-
-            <div class="safety-card-heading">
-
-                <span>
-                    🔎
-                </span>
-
-                <h3>
-                    Verify Independently
-                </h3>
-
-            </div>
-
-
-            <div class="verification-points">
-
-                <div class="verification-point">
-
-                    <strong>
-                        Company Website
-                    </strong>
-
-                    <span>
-                        Find the company's official
-                        website yourself.
-                    </span>
-
-                </div>
-
-
-                <div class="verification-point">
-
-                    <strong>
-                        Careers Page
-                    </strong>
-
-                    <span>
-                        Check whether the same vacancy
-                        exists on the official careers page.
-                    </span>
-
-                </div>
-
-
-                <div class="verification-point">
-
-                    <strong>
-                        Recruiter Identity
-                    </strong>
-
-                    <span>
-                        Verify recruiter details through
-                        independently obtained information.
-                    </span>
-
-                </div>
-
-
-                <div class="verification-point">
-
-                    <strong>
-                        Communication
-                    </strong>
-
-                    <span>
-                        Prefer official company channels
-                        for important communication.
-                    </span>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-
-    <!-- SAFETY ALERT -->
-
-    <div class="safety-alert">
-
-        <div class="safety-alert-icon">
-            ⚠️
-        </div>
-
-        <div>
-
-            <strong>
-                Already lost money or shared sensitive information?
-            </strong>
-
-            <p>
-                Preserve payment receipts,
-                screenshots, messages and other
-                evidence. Contact your bank or
-                payment provider immediately and
-                use official cybercrime reporting
-                channels where appropriate.
-            </p>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- =========================================================
-     DISCLAIMER
-========================================================= -->
-
-<section class="disclaimer-section">
-
-    <div class="disclaimer-card">
-
-        <div class="disclaimer-icon">
-            ℹ️
-        </div>
-
-        <div>
-
-            <h3>
-                Important Disclaimer
-            </h3>
-
-            <p>
-                AI JobGuard uses a rule-based risk
-                assessment system. A score is an
-                indicator based on detected signals
-                and is not proof that a job is
-                fraudulent or genuine.
-            </p>
-
-            <p>
-                Even a low-risk result does not
-                guarantee that an employer is genuine.
-                Always verify the company independently
-                before sharing sensitive information
-                or making decisions.
-            </p>
-
-        </div>
-
-    </div>
-
-</section>
-
-</main>
-
-
-
-<!-- =========================================================
-     FOOTER
-========================================================= -->
-
-<footer class="footer">
-
-    <div class="footer-container">
-
-        <div class="footer-brand">
-
-            <div class="brand">
-
-                <div class="brand-icon">
-                    🛡️
-                </div>
-
-                <div class="brand-text">
-
-                    <strong>
-                        AI JobGuard
-                    </strong>
-
-                    <span>
-                        Smart Job Safety
-                    </span>
-
-                </div>
-
-            </div>
-
-            <p>
-                AI-powered fake job and internship
-                risk detection.
-            </p>
-
-        </div>
-
-
-        <div class="footer-links">
-
-            <a href="#analyzer">
-                Analyzer
-            </a>
-
-            <a href="#how-it-works">
-                How It Works
-            </a>
-
-            <a href="#history">
-                History
-            </a>
-
-            <a href="#safety">
-                Safety
-            </a>
-
-        </div>
-
-
-        <div class="footer-status">
-
-            <span class="status-dot"></span>
-
-            SYSTEM ONLINE
-
-        </div>
-
-    </div>
-
-
-    <div class="footer-bottom">
-
-        <span>
-            © 2026 AI JobGuard
-        </span>
-
-        <span>
-            Built for safer job searching
-        </span>
-
-    </div>
-
-</footer>
-
-
-
-<!-- =========================================================
-     JAVASCRIPT
-========================================================= -->
-
-<script src="script.js"></script>
-
-</body>
-</html>
+Selection process:
+1. Resume screening
+2. Technical interview
+3. HR discussion
+
+Stipend: ₹15,000 per month
+
+Please apply through the official company careers page.
+No registration fee or payment is required.
+    `.trim(),
+
+    medium: `
+Urgent Hiring — Work From Home Internship
+
+We are urgently looking for students for a work-from-home internship.
+
+Salary: ₹40,000 - ₹60,000 per month
+
+No experience required. Immediate joining available.
+
+Selected candidates may be asked to attend a short online interview.
+
+Contact HR through WhatsApp for faster processing.
+
+Limited vacancies available. Apply immediately to secure your position.
+
+Send your resume and contact details to hr.jobs2026@gmail.com.
+    `.trim(),
+
+    high: `
+CONGRATULATIONS!!!
+
+You have been selected for an immediate work-from-home job with an international company.
+
+Salary: ₹1,50,000 per month guaranteed.
+
+No interview required.
+No experience required.
+
+To confirm your job, you must pay a refundable registration fee of ₹2,999 today.
+
+Payment must be made through UPI to:
+jobsecure@upi
+
+Your offer will expire in 30 minutes.
+
+Send your Aadhaar number, PAN number, bank account details and OTP for verification.
+
+WhatsApp HR immediately on +91 9876543210.
+
+Failure to complete the payment will result in cancellation of your offer.
+    `.trim()
+};
+
+/* =========================================================
+   RULE DEFINITIONS
+========================================================= */
+
+const rules = [
+    {
+        key: "payment",
+        name: "Payment Request",
+        points: 35,
+        patterns: [
+            /\bregistration fee\b/i,
+            /\bprocessing fee\b/i,
+            /\bjoining fee\b/i,
+            /\bsecurity deposit\b/i,
+            /\brefundable fee\b/i,
+            /\bpay\b.{0,40}\bfee\b/i,
+            /\bpayment\b.{0,40}\brequired\b/i,
+            /\bdeposit\b.{0,30}\bjob\b/i,
+            /\bpay\s*(₹|rs\.?|inr)?\s*[\d,]+/i
+        ],
+        warning:
+            "The posting asks the applicant to pay money to obtain or confirm a job."
+    },
+
+    {
+        key: "noInterview",
+        name: "No Interview",
+        points: 18,
+        patterns: [
+            /\bno interview\b/i,
+            /\bwithout interview\b/i,
+            /\binterview not required\b/i,
+            /\bno interview required\b/i,
+            /\bselected without interview\b/i
+        ],
+        warning:
+            "The posting describes a job or selection process without a meaningful interview."
+    },
+
+    {
+        key: "unrealisticSalary",
+        name: "Unusual Salary Claim",
+        points: 20,
+        patterns: [
+            /\b₹?\s*1[,.]?[0-9]{2,3}[,.]?[0-9]{2,3}\s*(per month|monthly)\b/i,
+            /\b₹?\s*[5-9][0-9],[0-9]{3}\s*(per month|monthly)\b/i,
+            /\bguaranteed income\b/i,
+            /\bguaranteed salary\b/i,
+            /\bearn\s*(₹|rs\.?|inr)?\s*[0-9,]+\s*(per day|daily|per month|monthly)\b/i,
+            /\bhigh salary\b.{0,30}\bno experience\b/i,
+            /\b1 lakh\b/i,
+            /\b2 lakh\b/i,
+            /\b3 lakh\b/i
+        ],
+        warning:
+            "The salary or earning promise appears unusually high or guaranteed for the stated requirements."
+    },
+
+    {
+        key: "urgency",
+        name: "Urgency / Pressure",
+        points: 15,
+        patterns: [
+            /\burgent(?:ly)?\b/i,
+            /\bimmediate(?:ly)? joining\b/i,
+            /\blimited vacancies\b/i,
+            /\bapply immediately\b/i,
+            /\bact now\b/i,
+            /\bwithin \d+ minutes?\b/i,
+            /\bexpires? in \d+ minutes?\b/i,
+            /\btoday only\b/i,
+            /\blast chance\b/i,
+            /\bconfirm today\b/i
+        ],
+        warning:
+            "The posting uses urgency or pressure to encourage a quick decision."
+    },
+
+    {
+        key: "personalEmail",
+        name: "Personal Email",
+        points: 10,
+        patterns: [
+            /\b[\w.+-]+@(gmail|yahoo|outlook|hotmail|protonmail)\.(com|in|co|net)\b/i
+        ],
+        warning:
+            "A free personal email provider is used instead of a company email domain."
+    },
+
+    {
+        key: "whatsapp",
+        name: "WhatsApp Recruitment Contact",
+        points: 8,
+        patterns: [
+            /\bwhatsapp\b/i,
+            /\bcontact.{0,20}whatsapp\b/i,
+            /\bmessage.{0,20}whatsapp\b/i
+        ],
+        warning:
+            "The posting directs applicants toward WhatsApp for recruitment communication."
+    },
+
+    {
+        key: "otp",
+        name: "OTP Request",
+        points: 35,
+        patterns: [
+            /\bshare\b.{0,30}\botp\b/i,
+            /\bsend\b.{0,30}\botp\b/i,
+            /\botp\b.{0,30}\bverification\b/i,
+            /\bverification\b.{0,30}\botp\b/i
+        ],
+        warning:
+            "Applicants should never disclose OTPs to recruiters or employers."
+    },
+
+    {
+        key: "bank",
+        name: "Bank Information Request",
+        points: 28,
+        patterns: [
+            /\bbank account\b/i,
+            /\baccount number\b/i,
+            /\baccount details\b/i,
+            /\bifsc\b/i,
+            /\bnet banking\b/i,
+            /\bdebit card\b/i,
+            /\bcredit card\b/i,
+            /\bcard number\b/i
+        ],
+        warning:
+            "The posting requests sensitive financial information."
+    },
+
+    {
+        key: "aadhaar",
+        name: "Aadhaar Request",
+        points: 20,
+        patterns: [
+            /\baadhaar\b/i,
+            /\baadhar\b/i,
+            /\baadhaar number\b/i
+        ],
+        warning:
+            "The posting requests Aadhaar information during recruitment."
+    },
+
+    {
+        key: "pan",
+        name: "PAN Request",
+        points: 18,
+        patterns: [
+            /\bpan number\b/i,
+            /\bpan card\b/i
+        ],
+        warning:
+            "The posting requests PAN information."
+    },
+
+    {
+        key: "upiPin",
+        name: "UPI PIN Request",
+        points: 40,
+        patterns: [
+            /\bupi pin\b/i,
+            /\bupi password\b/i,
+            /\bpin\b.{0,20}\bupi\b/i
+        ],
+        warning:
+            "A UPI PIN should never be shared with a recruiter or employer."
+    },
+
+    {
+        key: "fakeSelection",
+        name: "Instant Selection",
+        points: 18,
+        patterns: [
+            /\bcongratulations\b.{0,100}\bselected\b/i,
+            /\byou have been selected\b/i,
+            /\bselected immediately\b/i,
+            /\bdirect selection\b/i,
+            /\bguaranteed job\b/i
+        ],
+        warning:
+            "The posting appears to promise selection without sufficient evaluation."
+    },
+
+    {
+        key: "noExperience",
+        name: "No Experience Promise",
+        points: 8,
+        patterns: [
+            /\bno experience required\b/i,
+            /\bwithout experience\b/i,
+            /\banyone can apply\b/i
+        ],
+        warning:
+            "No experience requirements combined with strong promises can increase risk."
+    },
+
+    {
+        key: "suspiciousLanguage",
+        name: "Suspicious Wording",
+        points: 10,
+        patterns: [
+            /\bguaranteed\b/i,
+            /\beasy money\b/i,
+            /\bquick money\b/i,
+            /\bearn money from home\b/i,
+            /\brich\b/i,
+            /\bsecret opportunity\b/i,
+            /\b100% job\b/i
+        ],
+        warning:
+            "The posting contains wording commonly associated with misleading job offers."
+    }
+];
+
+/* =========================================================
+   CONTACT DETECTION
+========================================================= */
+
+function detectContacts(text) {
+    const phones =
+        text.match(/(?:\+91[\s-]?)?[6-9]\d{9}\b/g) || [];
+
+    const emails =
+        text.match(
+            /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
+        ) || [];
+
+    const urls =
+        text.match(
+            /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
+        ) || [];
+
+    const upiCandidates =
+        text.match(
+            /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}\b/g
+        ) || [];
+
+    const upi =
+        upiCandidates.filter(
+            (value) =>
+                !emails.some(
+                    (email) =>
+                        email.toLowerCase() ===
+                        value.toLowerCase()
+                )
+        );
+
+    const personalEmails = emails.filter((email) =>
+        /(gmail|yahoo|outlook|hotmail|protonmail)\./i.test(
+            email
+        )
+    );
+
+    return {
+        phones: [...new Set(phones)],
+        emails: [...new Set(emails)],
+        urls: [...new Set(urls)],
+        upi: [...new Set(upi)],
+        personalEmails: [...new Set(personalEmails)]
+    };
+}
+
+/* =========================================================
+   PERSONAL DATA DETECTION
+========================================================= */
+
+function detectPersonalData(text) {
+    const findings = [];
+
+    const checks = [
+        {
+            label: "Aadhaar number",
+            regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/i
+        },
+        {
+            label: "PAN number",
+            regex: /\b[A-Z]{5}\d{4}[A-Z]\b/i
+        },
+        {
+            label: "Bank account information",
+            regex:
+                /\b(bank account|account number|account details|ifsc)\b/i
+        },
+        {
+            label: "OTP",
+            regex: /\b(otp|one[-\s]?time password)\b/i
+        },
+        {
+            label: "Credit/debit card information",
+            regex:
+                /\b(credit card|debit card|card number|cvv)\b/i
+        },
+        {
+            label: "UPI PIN",
+            regex: /\bupi\s*pin\b/i
+        }
+    ];
+
+    checks.forEach((check) => {
+        if (check.regex.test(text)) {
+            findings.push(check.label);
+        }
+    });
+
+    return [...new Set(findings)];
+}
+
+/* =========================================================
+   SALARY ANALYSIS
+========================================================= */
+
+function analyzeSalary(text) {
+    const salaryPatterns = [
+        /₹\s*[\d,]+\s*(?:per month|monthly)/gi,
+        /rs\.?\s*[\d,]+\s*(?:per month|monthly)/gi,
+        /inr\s*[\d,]+\s*(?:per month|monthly)/gi,
+        /₹\s*[\d,]+/gi,
+        /\b\d+\s*(?:lakh|lakhs)\b/gi
+    ];
+
+    const matches = [];
+
+    salaryPatterns.forEach((pattern) => {
+        const found = text.match(pattern);
+
+        if (found) {
+            matches.push(...found);
+        }
+    });
+
+    const uniqueMatches = [...new Set(matches)];
+
+    const unrealistic =
+        /\bguaranteed salary\b|\bguaranteed income\b|\b1 lakh\b|\b2 lakh\b|\b3 lakh\b/i.test(
+            text
+        ) ||
+        uniqueMatches.some((value) => {
+            const number = parseInt(
+                value.replace(/[^\d]/g, ""),
+                10
+            );
+
+            return number >= 50000;
+        });
+
+    let message =
+        "No obvious salary red flag detected.";
+
+    if (unrealistic) {
+        message =
+            "The compensation claim may be unusually high or guaranteed relative to the stated requirements. Verify the employer and role independently.";
+    } else if (uniqueMatches.length) {
+        message =
+            "A salary amount was detected. Compare it with the role, experience requirements and the company's official job listing.";
+    }
+
+    return {
+        matches: uniqueMatches,
+        unrealistic,
+        message
+    };
+}
+
+/* =========================================================
+   RULE MATCHING
+========================================================= */
+
+function hasNoInterview(triggeredRules) {
+    return triggeredRules.some(
+        (rule) => rule.key === "noInterview"
+    );
+}
+
+function evaluateRules(text) {
+    const triggered = [];
+
+    rules.forEach((rule) => {
+        const matched = rule.patterns.some(
+            (pattern) => {
+                pattern.lastIndex = 0;
+                return pattern.test(text);
+            }
+        );
+
+        if (matched) {
+            triggered.push({
+                ...rule
+            });
+        }
+    });
+
+    return triggered;
+}
+
+/* =========================================================
+   RISK SCORE
+========================================================= */
+
+function calculateRisk(
+    triggeredRules,
+    personalData,
+    contacts,
+    salaryInfo
+) {
+    let score = 0;
+
+    triggeredRules.forEach((rule) => {
+        score += rule.points;
+    });
+
+    /* 2+ personal-data findings */
+    if (personalData.length >= 2) {
+        score += 10;
+    }
+
+    /* Phone + personal email */
+    if (
+        contacts.phones.length &&
+        contacts.personalEmails.length
+    ) {
+        score += 5;
+    }
+
+    /* Salary unusual but salary rule did not already trigger */
+    if (
+        salaryInfo.unrealistic &&
+        !triggeredRules.some(
+            (rule) =>
+                rule.key === "unrealisticSalary"
+        )
+    ) {
+        score += 10;
+    }
+
+    const hasPayment =
+        triggeredRules.some(
+            (rule) => rule.key === "payment"
+        );
+
+    const hasSensitiveData =
+        personalData.length > 0 ||
+        triggeredRules.some((rule) =>
+            [
+                "otp",
+                "bank",
+                "aadhaar",
+                "pan",
+                "upiPin"
+            ].includes(rule.key)
+        );
+
+    const hasUrgency =
+        triggeredRules.some(
+            (rule) => rule.key === "urgency"
+        );
+
+    const hasInstantSelection =
+        triggeredRules.some(
+            (rule) => rule.key === "fakeSelection"
+        );
+
+    /* Payment + urgency */
+    if (hasPayment && hasUrgency) {
+        score += 10;
+    }
+
+    /* Payment + sensitive data */
+    if (hasPayment && hasSensitiveData) {
+        score += 10;
