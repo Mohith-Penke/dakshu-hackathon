@@ -1,6 +1,6 @@
 /* =========================================================
    AI JOBGUARD — COMPLETE JAVASCRIPT
-   Client-side rule-based analysis
+   Rule-based Job & Internship Risk Analyzer
 ========================================================= */
 
 "use strict";
@@ -12,7 +12,7 @@
 const STORAGE_KEY = "aiJobGuardHistory";
 
 let currentAnalysis = null;
-let currentLanguage = "en";
+let scanTimer = null;
 
 /* =========================================================
    DOM HELPERS
@@ -78,8 +78,6 @@ const highRiskCount = $("#highRiskCount");
 const suspiciousCount = $("#suspiciousCount");
 const lowRiskCount = $("#lowRiskCount");
 const historyList = $("#historyList");
-
-const languageSelector = $("#languageSelector");
 
 /* =========================================================
    SAMPLE JOBS
@@ -162,42 +160,6 @@ Failure to complete the payment will result in cancellation of your offer.
 };
 
 /* =========================================================
-   TRANSLATIONS
-========================================================= */
-
-const translations = {
-    en: {
-        systemOnline: "SYSTEM ONLINE",
-        analyzing: "Analyzing job posting...",
-        processing: "Processing risk indicators...",
-        generating: "Generating explainable analysis...",
-        low: "LOW RISK",
-        suspicious: "SUSPICIOUS",
-        high: "HIGH RISK"
-    },
-
-    te: {
-        systemOnline: "సిస్టమ్ ఆన్‌లైన్",
-        analyzing: "జాబ్ పోస్టింగ్‌ను విశ్లేషిస్తోంది...",
-        processing: "రిస్క్ సూచనలను పరిశీలిస్తోంది...",
-        generating: "వివరణాత్మక విశ్లేషణ రూపొందిస్తోంది...",
-        low: "తక్కువ రిస్క్",
-        suspicious: "అనుమానాస్పదం",
-        high: "అధిక రిస్క్"
-    },
-
-    hi: {
-        systemOnline: "सिस्टम ऑनलाइन",
-        analyzing: "जॉब पोस्टिंग का विश्लेषण हो रहा है...",
-        processing: "जोखिम संकेतों की जांच हो रही है...",
-        generating: "विस्तृत विश्लेषण तैयार हो रहा है...",
-        low: "कम जोखिम",
-        suspicious: "संदिग्ध",
-        high: "उच्च जोखिम"
-    }
-};
-
-/* =========================================================
    RULE DEFINITIONS
 ========================================================= */
 
@@ -217,7 +179,8 @@ const rules = [
             /\bdeposit\b.{0,30}\bjob\b/i,
             /\bpay\s*(₹|rs\.?|inr)?\s*[\d,]+/i
         ],
-        warning: "The posting asks the applicant to pay money to obtain or confirm a job."
+        warning:
+            "The posting asks the applicant to pay money to obtain or confirm a job."
     },
 
     {
@@ -231,12 +194,13 @@ const rules = [
             /\bno interview required\b/i,
             /\bselected without interview\b/i
         ],
-        warning: "A job offer without a meaningful selection process can be a warning sign."
+        warning:
+            "The posting describes a job or selection process without a meaningful interview."
     },
 
     {
         key: "unrealisticSalary",
-        name: "Unrealistic Salary",
+        name: "Unusual Salary Claim",
         points: 20,
         patterns: [
             /\b₹?\s*1[,.]?[0-9]{2,3}[,.]?[0-9]{2,3}\s*(per month|monthly)\b/i,
@@ -249,7 +213,8 @@ const rules = [
             /\b2 lakh\b/i,
             /\b3 lakh\b/i
         ],
-        warning: "The salary or earning promise appears unusually high for the stated requirements."
+        warning:
+            "The salary or earning promise appears unusually high or guaranteed for the stated requirements."
     },
 
     {
@@ -268,7 +233,8 @@ const rules = [
             /\blast chance\b/i,
             /\bconfirm today\b/i
         ],
-        warning: "The posting uses urgency or pressure to encourage a quick decision."
+        warning:
+            "The posting uses urgency or pressure to encourage a quick decision."
     },
 
     {
@@ -278,19 +244,21 @@ const rules = [
         patterns: [
             /\b[\w.+-]+@(gmail|yahoo|outlook|hotmail|protonmail)\.(com|in|co|net)\b/i
         ],
-        warning: "The recruiter appears to use a free personal email provider instead of a company domain."
+        warning:
+            "A free personal email provider is used instead of a company email domain."
     },
 
     {
         key: "whatsapp",
-        name: "WhatsApp-First Contact",
+        name: "WhatsApp Recruitment Contact",
         points: 8,
         patterns: [
             /\bwhatsapp\b/i,
             /\bcontact.{0,20}whatsapp\b/i,
             /\bmessage.{0,20}whatsapp\b/i
         ],
-        warning: "The posting pushes applicants toward WhatsApp for recruitment communication."
+        warning:
+            "The posting directs applicants toward WhatsApp for recruitment communication."
     },
 
     {
@@ -303,23 +271,26 @@ const rules = [
             /\botp\b.{0,30}\bverification\b/i,
             /\bverification\b.{0,30}\botp\b/i
         ],
-        warning: "A legitimate employer should not ask applicants to disclose OTPs."
+        warning:
+            "Applicants should never disclose OTPs to recruiters or employers."
     },
 
     {
         key: "bank",
-        name: "Bank Information",
+        name: "Bank Information Request",
         points: 28,
         patterns: [
             /\bbank account\b/i,
             /\baccount number\b/i,
+            /\baccount details\b/i,
             /\bifsc\b/i,
             /\bnet banking\b/i,
             /\bdebit card\b/i,
             /\bcredit card\b/i,
             /\bcard number\b/i
         ],
-        warning: "The posting requests sensitive financial information."
+        warning:
+            "The posting requests sensitive financial information."
     },
 
     {
@@ -331,7 +302,8 @@ const rules = [
             /\baadhar\b/i,
             /\baadhaar number\b/i
         ],
-        warning: "The posting requests Aadhaar information during recruitment."
+        warning:
+            "The posting requests Aadhaar information during recruitment."
     },
 
     {
@@ -342,7 +314,8 @@ const rules = [
             /\bpan number\b/i,
             /\bpan card\b/i
         ],
-        warning: "The posting requests PAN information."
+        warning:
+            "The posting requests PAN information."
     },
 
     {
@@ -354,7 +327,8 @@ const rules = [
             /\bupi password\b/i,
             /\bpin\b.{0,20}\bupi\b/i
         ],
-        warning: "A UPI PIN should never be shared with a recruiter or employer."
+        warning:
+            "A UPI PIN should never be shared with a recruiter or employer."
     },
 
     {
@@ -368,7 +342,8 @@ const rules = [
             /\bdirect selection\b/i,
             /\bguaranteed job\b/i
         ],
-        warning: "The posting appears to promise selection without sufficient evaluation."
+        warning:
+            "The posting appears to promise selection without sufficient evaluation."
     },
 
     {
@@ -380,7 +355,8 @@ const rules = [
             /\bwithout experience\b/i,
             /\banyone can apply\b/i
         ],
-        warning: "No experience requirements combined with other strong promises can increase risk."
+        warning:
+            "No experience requirements combined with strong promises can increase risk."
     },
 
     {
@@ -396,7 +372,8 @@ const rules = [
             /\bsecret opportunity\b/i,
             /\b100% job\b/i
         ],
-        warning: "The posting contains language commonly associated with misleading job offers."
+        warning:
+            "The posting contains wording commonly associated with misleading job offers."
     }
 ];
 
@@ -405,21 +382,23 @@ const rules = [
 ========================================================= */
 
 function detectContacts(text) {
-    const phones = text.match(
-        /(?:\+91[\s-]?)?[6-9]\d{9}\b/g
-    ) || [];
+    const phones =
+        text.match(/(?:\+91[\s-]?)?[6-9]\d{9}\b/g) || [];
 
-    const emails = text.match(
-        /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
-    ) || [];
+    const emails =
+        text.match(
+            /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
+        ) || [];
 
-    const urls = text.match(
-        /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
-    ) || [];
+    const urls =
+        text.match(
+            /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
+        ) || [];
 
-    const upi = text.match(
-        /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}\b/g
-    ) || [];
+    const upi =
+        text.match(
+            /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}\b/g
+        ) || [];
 
     const personalEmails = emails.filter((email) =>
         /(gmail|yahoo|outlook|hotmail|protonmail)\./i.test(email)
@@ -435,7 +414,7 @@ function detectContacts(text) {
 }
 
 /* =========================================================
-   PERSONAL INFORMATION DETECTION
+   PERSONAL DATA DETECTION
 ========================================================= */
 
 function detectPersonalData(text) {
@@ -452,7 +431,8 @@ function detectPersonalData(text) {
         },
         {
             label: "Bank account information",
-            regex: /\b(bank account|account number|account details|ifsc)\b/i
+            regex:
+                /\b(bank account|account number|account details|ifsc)\b/i
         },
         {
             label: "OTP",
@@ -460,7 +440,8 @@ function detectPersonalData(text) {
         },
         {
             label: "Credit/debit card information",
-            regex: /\b(credit card|debit card|card number|cvv)\b/i
+            regex:
+                /\b(credit card|debit card|card number|cvv)\b/i
         },
         {
             label: "UPI PIN",
@@ -494,6 +475,7 @@ function analyzeSalary(text) {
 
     salaryPatterns.forEach((pattern) => {
         const found = text.match(pattern);
+
         if (found) {
             matches.push(...found);
         }
@@ -502,7 +484,9 @@ function analyzeSalary(text) {
     const uniqueMatches = [...new Set(matches)];
 
     const unrealistic =
-        /\bguaranteed salary\b|\bguaranteed income\b|\b1 lakh\b|\b2 lakh\b|\b3 lakh\b/i.test(text) ||
+        /\bguaranteed salary\b|\bguaranteed income\b|\b1 lakh\b|\b2 lakh\b|\b3 lakh\b/i.test(
+            text
+        ) ||
         uniqueMatches.some((value) => {
             const number = parseInt(
                 value.replace(/[^\d]/g, ""),
@@ -516,7 +500,7 @@ function analyzeSalary(text) {
 
     if (unrealistic) {
         message =
-            "The salary/earning promise may be unusually high relative to the stated requirements. Verify the role, company and compensation independently.";
+            "The compensation claim may be unusually high or guaranteed relative to the stated requirements. Verify the employer and role independently.";
     } else if (uniqueMatches.length) {
         message =
             "A salary amount was detected. Compare it with the role, experience requirements and the company's official job listing.";
@@ -555,31 +539,90 @@ function evaluateRules(text) {
    RISK SCORE
 ========================================================= */
 
-function calculateRisk(triggeredRules, personalData, contacts, salaryInfo) {
+function calculateRisk(
+    triggeredRules,
+    personalData,
+    contacts,
+    salaryInfo
+) {
     let score = 0;
+
+    /*
+       Primary rule signals.
+    */
 
     triggeredRules.forEach((rule) => {
         score += rule.points;
     });
 
     /*
-       Extra contextual adjustments
+       Contextual signals.
     */
 
     if (personalData.length >= 2) {
         score += 10;
     }
 
-    if (contacts.phones.length && contacts.personalEmails.length) {
+    if (
+        contacts.phones.length &&
+        contacts.personalEmails.length
+    ) {
         score += 5;
     }
 
-    if (salaryInfo.unrealistic) {
-        score += 5;
+    if (
+        salaryInfo.unrealistic &&
+        !triggeredRules.some(
+            (rule) => rule.key === "unrealisticSalary"
+        )
+    ) {
+        score += 10;
     }
 
     /*
-       Cap score to 100
+       Strong combinations.
+       These combinations are more meaningful than
+       isolated weak signals.
+    */
+
+    const hasPayment = triggeredRules.some(
+        (rule) => rule.key === "payment"
+    );
+
+    const hasSensitiveData =
+        personalData.length > 0 ||
+        triggeredRules.some((rule) =>
+            [
+                "otp",
+                "bank",
+                "aadhaar",
+                "pan",
+                "upiPin"
+            ].includes(rule.key)
+        );
+
+    const hasUrgency = triggeredRules.some(
+        (rule) => rule.key === "urgency"
+    );
+
+    const hasInstantSelection = triggeredRules.some(
+        (rule) => rule.key === "fakeSelection"
+    );
+
+    if (hasPayment && hasUrgency) {
+        score += 10;
+    }
+
+    if (hasPayment && hasSensitiveData) {
+        score += 10;
+    }
+
+    if (hasInstantSelection && hasNoInterview(triggeredRules)) {
+        score += 8;
+    }
+
+    /*
+       Final score.
     */
 
     score = Math.min(100, Math.round(score));
@@ -598,6 +641,12 @@ function calculateRisk(triggeredRules, personalData, contacts, salaryInfo) {
     };
 }
 
+function hasNoInterview(triggeredRules) {
+    return triggeredRules.some(
+        (rule) => rule.key === "noInterview"
+    );
+}
+
 /* =========================================================
    RISK BREAKDOWN
 ========================================================= */
@@ -610,7 +659,11 @@ function buildBreakdown(triggeredRules) {
         },
         {
             name: "Selection Process",
-            keys: ["noInterview", "fakeSelection", "noExperience"]
+            keys: [
+                "noInterview",
+                "fakeSelection",
+                "noExperience"
+            ]
         },
         {
             name: "Salary Claims",
@@ -622,11 +675,20 @@ function buildBreakdown(triggeredRules) {
         },
         {
             name: "Contact Signals",
-            keys: ["personalEmail", "whatsapp"]
+            keys: [
+                "personalEmail",
+                "whatsapp"
+            ]
         },
         {
             name: "Sensitive Data",
-            keys: ["otp", "bank", "aadhaar", "pan", "upiPin"]
+            keys: [
+                "otp",
+                "bank",
+                "aadhaar",
+                "pan",
+                "upiPin"
+            ]
         },
         {
             name: "Suspicious Language",
@@ -635,12 +697,14 @@ function buildBreakdown(triggeredRules) {
     ];
 
     return categories.map((category) => {
-        const matches = triggeredRules.filter((rule) =>
-            category.keys.includes(rule.key)
+        const matches = triggeredRules.filter(
+            (rule) =>
+                category.keys.includes(rule.key)
         );
 
         const points = matches.reduce(
-            (total, rule) => total + rule.points,
+            (total, rule) =>
+                total + rule.points,
             0
         );
 
@@ -653,7 +717,7 @@ function buildBreakdown(triggeredRules) {
 }
 
 /* =========================================================
-   RISK TEXT
+   RISK INFORMATION
 ========================================================= */
 
 function getRiskInformation(level, score) {
@@ -662,9 +726,9 @@ function getRiskInformation(level, score) {
             title: "High Risk Job Posting",
             pill: "HIGH RISK",
             explanation:
-                `This posting contains multiple strong warning signs. The calculated risk score is ${score}/100. Do not send money, OTPs, UPI PINs or sensitive financial information based only on this posting.`,
+                `This posting contains multiple strong warning signs. The calculated risk score is ${score}/100.`,
             recommendation:
-                "Stop before making any payment or sharing sensitive information. Verify the employer using its official website and independently obtained contact details."
+                "Do not make payments or share OTPs, UPI PINs or sensitive financial information. Verify the employer through its official website and independently obtained contact details."
         };
     }
 
@@ -673,7 +737,7 @@ function getRiskInformation(level, score) {
             title: "Suspicious Job Posting",
             pill: "SUSPICIOUS",
             explanation:
-                `This posting contains several warning indicators. The calculated risk score is ${score}/100. Further verification is recommended before sharing personal information or proceeding.`,
+                `This posting contains several warning indicators. The calculated risk score is ${score}/100.`,
             recommendation:
                 "Verify the company, recruiter identity, official email domain, interview process and compensation before proceeding."
         };
@@ -683,31 +747,36 @@ function getRiskInformation(level, score) {
         title: "Lower Risk Pattern",
         pill: "LOW RISK",
         explanation:
-            `The posting contains fewer obvious warning indicators. The calculated risk score is ${score}/100. This does not prove that the employer is genuine.`,
+            `The posting contains fewer predefined warning indicators. The calculated risk score is ${score}/100. This does not prove that the employer is genuine.`,
         recommendation:
-            "Continue to verify the employer independently. Apply through an official company careers page whenever possible."
+            "Continue to verify the employer independently and use the official company careers page whenever possible."
     };
 }
 
 /* =========================================================
-   WARNING LIST
+   WARNING LIST / REASONS
 ========================================================= */
 
-function renderWarnings(triggeredRules, personalData) {
+function renderWarnings(
+    triggeredRules,
+    personalData
+) {
     if (!warningList) {
         return;
     }
 
-    const warnings = triggeredRules.map((rule) => ({
-        title: rule.name,
-        description: rule.warning
-    }));
+    const warnings = triggeredRules.map(
+        (rule) => ({
+            title: rule.name,
+            description: rule.warning
+        })
+    );
 
     personalData.forEach((item) => {
         warnings.push({
             title: "Sensitive Information Detected",
             description:
-                `The text appears to mention ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
+                `The text mentions ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
         });
     });
 
@@ -717,6 +786,7 @@ function renderWarnings(triggeredRules, personalData) {
                 No major warning patterns were detected in the submitted text.
             </div>
         `;
+
         return;
     }
 
@@ -742,7 +812,7 @@ function renderWarnings(triggeredRules, personalData) {
 }
 
 /* =========================================================
-   BREAKDOWN RENDER
+   BREAKDOWN
 ========================================================= */
 
 function renderBreakdown(breakdown) {
@@ -763,7 +833,10 @@ function renderBreakdown(breakdown) {
                     <div class="breakdown-bar">
                         <div
                             class="breakdown-bar-fill"
-                            style="width: ${Math.min(item.points, 100)}%"
+                            style="width:${Math.min(
+                                item.points,
+                                100
+                            )}%"
                         ></div>
                     </div>
 
@@ -858,7 +931,9 @@ function renderSalaryAnalysis(salaryInfo) {
                 <span class="analysis-value">
                     ${
                         salaryInfo.matches.length
-                            ? escapeHTML(salaryInfo.matches.join(", "))
+                            ? escapeHTML(
+                                  salaryInfo.matches.join(", ")
+                              )
                             : "None detected"
                     }
                 </span>
@@ -870,7 +945,9 @@ function renderSalaryAnalysis(salaryInfo) {
                 </span>
 
                 <span class="analysis-value">
-                    ${escapeHTML(salaryInfo.message)}
+                    ${escapeHTML(
+                        salaryInfo.message
+                    )}
                 </span>
             </div>
         </div>
@@ -881,27 +958,36 @@ function renderSalaryAnalysis(salaryInfo) {
    PERSONAL DATA WARNING
 ========================================================= */
 
-function renderPersonalDataWarning(personalData) {
+function renderPersonalDataWarning(
+    personalData
+) {
     if (!personalDataWarning) {
         return;
     }
 
     if (!personalData.length) {
-        personalDataWarning.classList.add("hidden");
+        personalDataWarning.classList.add(
+            "hidden"
+        );
+
         personalDataWarning.innerHTML = "";
+
         return;
     }
 
-    personalDataWarning.classList.remove("hidden");
+    personalDataWarning.classList.remove(
+        "hidden"
+    );
 
     personalDataWarning.innerHTML = `
         <strong>⚠ Sensitive information detected</strong>
 
         <p>
             The submitted text contains references to:
-            ${escapeHTML(personalData.join(", "))}.
-            Never share OTPs, UPI PINs, passwords or unnecessary financial
-            information with recruiters.
+            ${escapeHTML(
+                personalData.join(", ")
+            )}.
+            Never share OTPs, UPI PINs, passwords or unnecessary financial information with recruiters.
         </p>
     `;
 }
@@ -910,7 +996,10 @@ function renderPersonalDataWarning(personalData) {
    TEXT HIGHLIGHTING
 ========================================================= */
 
-function highlightText(text, triggeredRules) {
+function highlightText(
+    text,
+    triggeredRules
+) {
     let result = escapeHTML(text);
 
     const phrases = [];
@@ -918,12 +1007,6 @@ function highlightText(text, triggeredRules) {
     triggeredRules.forEach((rule) => {
         rule.patterns.forEach((pattern) => {
             const source = pattern.source;
-
-            /*
-                Only use simple patterns for highlighting.
-                Complex regex groups are skipped to avoid
-                breaking the original text.
-            */
 
             if (
                 !source.includes(".*") &&
@@ -940,10 +1023,6 @@ function highlightText(text, triggeredRules) {
             }
         });
     });
-
-    /*
-       Common high-value phrases.
-    */
 
     const commonRiskPhrases = [
         "registration fee",
@@ -964,34 +1043,40 @@ function highlightText(text, triggeredRules) {
         "apply immediately"
     ];
 
-    commonRiskPhrases.forEach((phrase) => {
-        phrases.push({
-            source: phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-            type:
-                /fee|otp|upi|bank|aadhaar|pan|no interview|guaranteed|pay/i.test(
-                    phrase
-                )
-                    ? "risk"
-                    : "warning"
-        });
-    });
-
-    /*
-       Longest first to reduce partial replacements.
-    */
+    commonRiskPhrases.forEach(
+        (phrase) => {
+            phrases.push({
+                source: phrase.replace(
+                    /[.*+?^${}()|[\]\\]/g,
+                    "\\$&"
+                ),
+                type:
+                    /fee|otp|upi|bank|aadhaar|pan|no interview|guaranteed|pay/i.test(
+                        phrase
+                    )
+                        ? "risk"
+                        : "warning"
+            });
+        }
+    );
 
     phrases.sort(
-        (a, b) => b.source.length - a.source.length
+        (a, b) =>
+            b.source.length -
+            a.source.length
     );
 
     const used = new Set();
 
     phrases.forEach((item) => {
-        if (used.has(item.source.toLowerCase())) {
+        const key =
+            item.source.toLowerCase();
+
+        if (used.has(key)) {
             return;
         }
 
-        used.add(item.source.toLowerCase());
+        used.add(key);
 
         try {
             const regex = new RegExp(
@@ -1004,7 +1089,7 @@ function highlightText(text, triggeredRules) {
                 `<mark class="highlight-${item.type}">$1</mark>`
             );
         } catch {
-            /* Ignore unsupported highlight pattern */
+            /* Ignore invalid patterns */
         }
     });
 
@@ -1026,7 +1111,9 @@ function buildDetailedExplanation(
     if (triggeredRules.length) {
         paragraphs.push(
             `The analyzer detected ${triggeredRules.length} warning pattern${
-                triggeredRules.length === 1 ? "" : "s"
+                triggeredRules.length === 1
+                    ? ""
+                    : "s"
             } in the submitted job text.`
         );
     } else {
@@ -1039,13 +1126,13 @@ function buildDetailedExplanation(
         paragraphs.push(
             `A free email provider was detected: ${contacts.personalEmails.join(
                 ", "
-            )}. A personal email address does not automatically mean fraud, but applicants should verify the employer independently.`
+            )}. A personal email address does not automatically mean fraud, but the employer should be independently verified.`
         );
     }
 
     if (salaryInfo.unrealistic) {
         paragraphs.push(
-            "The compensation language contains a potentially unrealistic or guaranteed earning claim. Compare the compensation with the role and official company information."
+            "The compensation language contains a potentially unusual or guaranteed earning claim. Compare the compensation with the role and official company information."
         );
     }
 
@@ -1058,11 +1145,16 @@ function buildDetailedExplanation(
     }
 
     paragraphs.push(
-        "This is a rule-based client-side analysis. It is a warning system, not proof that a job is fraudulent or genuine."
+        "This is a rule-based client-side analysis. The score is an indicator based on detected signals, not proof that a job is fraudulent or genuine."
     );
 
     return paragraphs
-        .map((paragraph) => `<p>${escapeHTML(paragraph)}</p>`)
+        .map(
+            (paragraph) =>
+                `<p>${escapeHTML(
+                    paragraph
+                )}</p>`
+        )
         .join("");
 }
 
@@ -1081,11 +1173,13 @@ function displayResult(analysis) {
     );
 
     if (riskScore) {
-        riskScore.textContent = analysis.risk.score;
+        riskScore.textContent =
+            analysis.risk.score;
     }
 
     if (riskPill) {
-        riskPill.textContent = info.pill;
+        riskPill.textContent =
+            info.pill;
 
         riskPill.classList.remove(
             "risk-low",
@@ -1099,19 +1193,23 @@ function displayResult(analysis) {
     }
 
     if (riskTitle) {
-        riskTitle.textContent = info.title;
+        riskTitle.textContent =
+            info.title;
     }
 
     if (riskExplanation) {
-        riskExplanation.textContent = info.explanation;
+        riskExplanation.textContent =
+            info.explanation;
     }
 
     if (meterValue) {
-        meterValue.textContent = `${analysis.risk.score}/100`;
+        meterValue.textContent =
+            `${analysis.risk.score}/100`;
     }
 
     if (meterFill) {
-        meterFill.style.width = `${analysis.risk.score}%`;
+        meterFill.style.width =
+            `${analysis.risk.score}%`;
     }
 
     if (riskCard) {
@@ -1126,7 +1224,9 @@ function displayResult(analysis) {
         );
     }
 
-    renderBreakdown(analysis.breakdown);
+    renderBreakdown(
+        analysis.breakdown
+    );
 
     renderWarnings(
         analysis.triggeredRules,
@@ -1146,24 +1246,37 @@ function displayResult(analysis) {
                 </span>
 
                 <span class="analysis-value">
-                    ${escapeHTML(info.recommendation)}
+                    ${escapeHTML(
+                        info.recommendation
+                    )}
                 </span>
             </div>
         `;
     }
 
     if (highlightedText) {
-        highlightedText.innerHTML = highlightText(
-            analysis.text,
-            analysis.triggeredRules
-        );
+        highlightedText.innerHTML =
+            highlightText(
+                analysis.text,
+                analysis.triggeredRules
+            );
     }
 
-    renderContactAnalysis(analysis.contacts);
-    renderSalaryAnalysis(analysis.salary);
-    renderPersonalDataWarning(analysis.personalData);
+    renderContactAnalysis(
+        analysis.contacts
+    );
 
-    resultSection.classList.remove("hidden");
+    renderSalaryAnalysis(
+        analysis.salary
+    );
+
+    renderPersonalDataWarning(
+        analysis.personalData
+    );
+
+    resultSection.classList.remove(
+        "hidden"
+    );
 
     setTimeout(() => {
         resultSection.scrollIntoView({
@@ -1178,34 +1291,41 @@ function displayResult(analysis) {
 ========================================================= */
 
 function analyzeJob(text) {
-    const normalizedText = text.trim();
+    const normalizedText =
+        text.trim();
 
-    const triggeredRules = evaluateRules(
-        normalizedText
-    );
+    const triggeredRules =
+        evaluateRules(
+            normalizedText
+        );
 
-    const contacts = detectContacts(
-        normalizedText
-    );
+    const contacts =
+        detectContacts(
+            normalizedText
+        );
 
-    const personalData = detectPersonalData(
-        normalizedText
-    );
+    const personalData =
+        detectPersonalData(
+            normalizedText
+        );
 
-    const salary = analyzeSalary(
-        normalizedText
-    );
+    const salary =
+        analyzeSalary(
+            normalizedText
+        );
 
-    const risk = calculateRisk(
-        triggeredRules,
-        personalData,
-        contacts,
-        salary
-    );
+    const risk =
+        calculateRisk(
+            triggeredRules,
+            personalData,
+            contacts,
+            salary
+        );
 
-    const breakdown = buildBreakdown(
-        triggeredRules
-    );
+    const breakdown =
+        buildBreakdown(
+            triggeredRules
+        );
 
     const detailedExplanation =
         buildDetailedExplanation(
@@ -1225,62 +1345,131 @@ function analyzeJob(text) {
         salary,
         breakdown,
         detailedExplanation,
-        createdAt: new Date().toISOString()
+        createdAt:
+            new Date().toISOString()
     };
 }
 
 /* =========================================================
-   LOADING
+   LIVE SCANNING
 ========================================================= */
+
+const scanStages = [
+    "Reading job description...",
+    "Detecting payment requests...",
+    "Checking personal & financial data...",
+    "Analyzing salary claims...",
+    "Checking urgency & selection patterns...",
+    "Analyzing recruiter contact signals...",
+    "Calculating risk indicators...",
+    "Preparing explainable results..."
+];
 
 function showLoading() {
     if (loadingArea) {
-        loadingArea.classList.remove("hidden");
+        loadingArea.classList.remove(
+            "hidden"
+        );
     }
 
     if (errorMessage) {
-        errorMessage.classList.add("hidden");
+        errorMessage.classList.add(
+            "hidden"
+        );
     }
 
     if (analyzeButton) {
         analyzeButton.disabled = true;
     }
 
-    const messages = [
-        translations[currentLanguage].analyzing,
-        translations[currentLanguage].processing,
-        translations[currentLanguage].generating
-    ];
-
-    let index = 0;
+    let currentStage = 0;
 
     if (loadingText) {
-        loadingText.textContent = messages[0];
+        loadingText.innerHTML = `
+            <strong>SCANNING JOB POSTING...</strong><br>
+            <span>Reading job description...</span><br>
+            <span>0%</span>
+        `;
     }
 
-    const interval = setInterval(() => {
-        index++;
+    scanTimer = setInterval(() => {
+        currentStage++;
 
-        if (index >= messages.length) {
-            clearInterval(interval);
-            return;
-        }
+        const completed =
+            currentStage;
+
+        const progress = Math.min(
+            100,
+            Math.round(
+                (completed /
+                    scanStages.length) *
+                    100
+            )
+        );
+
+        const completedLines =
+            scanStages
+                .slice(
+                    0,
+                    currentStage
+                )
+                .map(
+                    (stage) =>
+                        `✓ ${escapeHTML(
+                            stage.replace(
+                                "...",
+                                ""
+                            )
+                        )}`
+                )
+                .join("<br>");
+
+        const current =
+            scanStages[
+                Math.min(
+                    currentStage,
+                    scanStages.length - 1
+                )
+            ];
 
         if (loadingText) {
-            loadingText.textContent = messages[index];
-        }
-    }, 550);
+            loadingText.innerHTML = `
+                <strong>🔍 SCANNING JOB POSTING...</strong>
+                <br><br>
 
-    return interval;
+                ${completedLines}
+
+                <br>
+                <span>⟳ ${escapeHTML(
+                    current
+                )}</span>
+
+                <br><br>
+
+                <strong>${progress}%</strong>
+            `;
+        }
+
+        if (
+            currentStage >=
+            scanStages.length
+        ) {
+            clearInterval(scanTimer);
+            scanTimer = null;
+        }
+    }, 400);
 }
 
-function hideLoading(interval) {
-    if (interval) {
-        clearInterval(interval);
+function hideLoading() {
+    if (scanTimer) {
+        clearInterval(scanTimer);
+        scanTimer = null;
     }
 
     if (loadingArea) {
-        loadingArea.classList.add("hidden");
+        loadingArea.classList.add(
+            "hidden"
+        );
     }
 
     if (analyzeButton) {
@@ -1289,20 +1478,22 @@ function hideLoading(interval) {
 }
 
 /* =========================================================
-   HISTORY STORAGE
+   HISTORY
 ========================================================= */
 
 function getHistory() {
     try {
-        const saved = localStorage.getItem(
-            STORAGE_KEY
-        );
+        const saved =
+            localStorage.getItem(
+                STORAGE_KEY
+            );
 
         if (!saved) {
             return [];
         }
 
-        const parsed = JSON.parse(saved);
+        const parsed =
+            JSON.parse(saved);
 
         return Array.isArray(parsed)
             ? parsed
@@ -1313,27 +1504,23 @@ function getHistory() {
 }
 
 function saveHistory(analysis) {
-    const history = getHistory();
+    const history =
+        getHistory();
 
-    const item = {
+    history.unshift({
         id: analysis.id,
         text: analysis.text,
         score: analysis.risk.score,
         level: analysis.risk.level,
-        createdAt: analysis.createdAt
-    };
-
-    history.unshift(item);
-
-    /*
-       Keep the latest 30 analyses.
-    */
-
-    const trimmed = history.slice(0, 30);
+        createdAt:
+            analysis.createdAt
+    });
 
     localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify(trimmed)
+        JSON.stringify(
+            history.slice(0, 30)
+        )
     );
 }
 
@@ -1341,9 +1528,13 @@ function saveHistory(analysis) {
    HISTORY RENDER
 ========================================================= */
 
-function formatDate(dateString) {
+function formatDate(
+    dateString
+) {
     try {
-        return new Date(dateString).toLocaleString(
+        return new Date(
+            dateString
+        ).toLocaleString(
             undefined,
             {
                 dateStyle: "medium",
@@ -1355,20 +1546,9 @@ function formatDate(dateString) {
     }
 }
 
-function getLevelLabel(level) {
-    if (level === "high") {
-        return "HIGH RISK";
-    }
-
-    if (level === "suspicious") {
-        return "SUSPICIOUS";
-    }
-
-    return "LOW RISK";
-}
-
 function renderHistory() {
-    const history = getHistory();
+    const history =
+        getHistory();
 
     if (
         totalScans &&
@@ -1376,21 +1556,28 @@ function renderHistory() {
         suspiciousCount &&
         lowRiskCount
     ) {
-        totalScans.textContent = history.length;
+        totalScans.textContent =
+            history.length;
 
         highRiskCount.textContent =
             history.filter(
-                (item) => item.level === "high"
+                (item) =>
+                    item.level ===
+                    "high"
             ).length;
 
         suspiciousCount.textContent =
             history.filter(
-                (item) => item.level === "suspicious"
+                (item) =>
+                    item.level ===
+                    "suspicious"
             ).length;
 
         lowRiskCount.textContent =
             history.filter(
-                (item) => item.level === "low"
+                (item) =>
+                    item.level ===
+                    "low"
             ).length;
     }
 
@@ -1408,41 +1595,56 @@ function renderHistory() {
         return;
     }
 
-    historyList.innerHTML = history
-        .map((item) => {
-            const preview = item.text
-                .replace(/\s+/g, " ")
-                .trim();
+    historyList.innerHTML =
+        history
+            .map((item) => {
+                const preview =
+                    item.text
+                        .replace(
+                            /\s+/g,
+                            " "
+                        )
+                        .trim();
 
-            return `
-                <div class="history-item">
-                    <div>
-                        <div class="history-item-title">
-                            ${escapeHTML(
-                                preview.slice(0, 100)
-                            )}${preview.length > 100 ? "..." : ""}
+                return `
+                    <div class="history-item">
+                        <div>
+                            <div class="history-item-title">
+                                ${escapeHTML(
+                                    preview.slice(
+                                        0,
+                                        100
+                                    )
+                                )}${
+                    preview.length >
+                    100
+                        ? "..."
+                        : ""
+                }
+                            </div>
+
+                            <div class="history-item-date">
+                                ${escapeHTML(
+                                    formatDate(
+                                        item.createdAt
+                                    )
+                                )}
+                            </div>
                         </div>
 
-                        <div class="history-item-date">
-                            ${escapeHTML(
-                                formatDate(item.createdAt)
-                            )}
+                        <div class="history-score risk-${escapeHTML(
+                            item.level
+                        )}">
+                            ${item.score}/100
                         </div>
                     </div>
-
-                    <div class="history-score risk-${escapeHTML(
-                        item.level
-                    )}">
-                        ${item.score}/100
-                    </div>
-                </div>
-            `;
-        })
-        .join("");
+                `;
+            })
+            .join("");
 }
 
 /* =========================================================
-   ANALYSIS ACTION
+   ANALYZE ACTION
 ========================================================= */
 
 async function handleAnalyze() {
@@ -1450,7 +1652,8 @@ async function handleAnalyze() {
         return;
     }
 
-    const text = jobDescription.value.trim();
+    const text =
+        jobDescription.value.trim();
 
     if (!text) {
         showError(
@@ -1458,7 +1661,6 @@ async function handleAnalyze() {
         );
 
         jobDescription.focus();
-
         return;
     }
 
@@ -1468,38 +1670,56 @@ async function handleAnalyze() {
         );
 
         jobDescription.focus();
-
         return;
     }
 
-    const loadingInterval = showLoading();
+    if (resultSection) {
+        resultSection.classList.add(
+            "hidden"
+        );
+    }
+
+    showLoading();
 
     /*
-       Small delay makes the analysis feel deliberate
-       without requiring a backend.
+       Deliberate scan duration.
+       The analysis itself remains local and
+       is performed after the scan animation.
     */
 
-    await new Promise((resolve) =>
-        setTimeout(resolve, 1500)
+    await new Promise(
+        (resolve) =>
+            setTimeout(
+                resolve,
+                3600
+            )
     );
 
     try {
-        const analysis = analyzeJob(text);
+        const analysis =
+            analyzeJob(text);
 
-        currentAnalysis = analysis;
+        currentAnalysis =
+            analysis;
 
-        saveHistory(analysis);
-        displayResult(analysis);
+        saveHistory(
+            analysis
+        );
+
+        hideLoading();
+
+        displayResult(
+            analysis
+        );
+
         renderHistory();
-
-        hideLoading(loadingInterval);
     } catch (error) {
         console.error(
             "AI JobGuard analysis error:",
             error
         );
 
-        hideLoading(loadingInterval);
+        hideLoading();
 
         showError(
             "Something went wrong while analyzing the text. Please try again."
@@ -1516,8 +1736,12 @@ function showError(message) {
         return;
     }
 
-    errorMessage.textContent = message;
-    errorMessage.classList.remove("hidden");
+    errorMessage.textContent =
+        message;
+
+    errorMessage.classList.remove(
+        "hidden"
+    );
 }
 
 /* =========================================================
@@ -1525,7 +1749,10 @@ function showError(message) {
 ========================================================= */
 
 function updateCharacterCount() {
-    if (!jobDescription || !characterCount) {
+    if (
+        !jobDescription ||
+        !characterCount
+    ) {
         return;
     }
 
@@ -1534,7 +1761,7 @@ function updateCharacterCount() {
 }
 
 /* =========================================================
-   CLEAR ANALYZER
+   CLEAR
 ========================================================= */
 
 function clearAnalyzer() {
@@ -1545,11 +1772,15 @@ function clearAnalyzer() {
     updateCharacterCount();
 
     if (errorMessage) {
-        errorMessage.classList.add("hidden");
+        errorMessage.classList.add(
+            "hidden"
+        );
     }
 
     if (resultSection) {
-        resultSection.classList.add("hidden");
+        resultSection.classList.add(
+            "hidden"
+        );
     }
 
     currentAnalysis = null;
@@ -1560,7 +1791,7 @@ function clearAnalyzer() {
 }
 
 /* =========================================================
-   SAMPLE JOB LOADER
+   SAMPLE LOADER
 ========================================================= */
 
 function loadSample(type) {
@@ -1568,25 +1799,30 @@ function loadSample(type) {
         return;
     }
 
-    const sample = sampleJobs[type];
+    const sample =
+        sampleJobs[type];
 
     if (!sample) {
         return;
     }
 
-    jobDescription.value = sample;
+    jobDescription.value =
+        sample;
 
     updateCharacterCount();
 
     if (errorMessage) {
-        errorMessage.classList.add("hidden");
+        errorMessage.classList.add(
+            "hidden"
+        );
     }
 
     jobDescription.focus();
 
     window.scrollTo({
         top:
-            jobDescription.getBoundingClientRect().top +
+            jobDescription.getBoundingClientRect()
+                .top +
             window.scrollY -
             120,
         behavior: "smooth"
@@ -1594,25 +1830,29 @@ function loadSample(type) {
 }
 
 /* =========================================================
-   COPY ANALYSIS
+   ANALYSIS TEXT
 ========================================================= */
 
-function buildAnalysisText(analysis) {
+function buildAnalysisText(
+    analysis
+) {
     if (!analysis) {
         return "";
     }
 
-    const info = getRiskInformation(
-        analysis.risk.level,
-        analysis.risk.score
-    );
+    const info =
+        getRiskInformation(
+            analysis.risk.level,
+            analysis.risk.score
+        );
 
-    const warnings = analysis.triggeredRules
-        .map(
-            (rule) =>
-                `- ${rule.name}: ${rule.warning}`
-        )
-        .join("\n");
+    const warnings =
+        analysis.triggeredRules
+            .map(
+                (rule) =>
+                    `- ${rule.name}: ${rule.warning}`
+            )
+            .join("\n");
 
     return `
 AI JOBGUARD — JOB RISK ANALYSIS
@@ -1623,33 +1863,42 @@ Risk Level: ${info.pill}
 ${info.explanation}
 
 WARNING SIGNS:
-${warnings || "- No major warning patterns detected."}
+${
+    warnings ||
+    "- No major warning patterns detected."
+}
 
 PERSONAL DATA:
 ${
     analysis.personalData.length
-        ? analysis.personalData.join(", ")
+        ? analysis.personalData.join(
+              ", "
+          )
         : "None detected"
 }
 
 CONTACTS:
 Phone: ${
-        analysis.contacts.phones.join(", ") ||
-        "None detected"
+        analysis.contacts.phones.join(
+            ", "
+        ) || "None detected"
     }
 Email: ${
-        analysis.contacts.emails.join(", ") ||
-        "None detected"
+        analysis.contacts.emails.join(
+            ", "
+        ) || "None detected"
     }
 URLs: ${
-        analysis.contacts.urls.join(", ") ||
-        "None detected"
+        analysis.contacts.urls.join(
+            ", "
+        ) || "None detected"
     }
 
 SALARY:
 ${
-    analysis.salary.matches.join(", ") ||
-    "None detected"
+    analysis.salary.matches.join(
+        ", "
+    ) || "None detected"
 }
 
 RECOMMENDATION:
@@ -1659,6 +1908,10 @@ DISCLAIMER:
 This is a client-side rule-based analysis. It is not proof that a job is fraudulent or genuine.
     `.trim();
 }
+
+/* =========================================================
+   COPY
+========================================================= */
 
 async function copyCurrentAnalysis() {
     if (!currentAnalysis) {
@@ -1670,10 +1923,14 @@ async function copyCurrentAnalysis() {
     }
 
     const text =
-        buildAnalysisText(currentAnalysis);
+        buildAnalysisText(
+            currentAnalysis
+        );
 
     try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(
+            text
+        );
 
         showTemporaryButtonText(
             copyAnalysis,
@@ -1689,35 +1946,36 @@ async function copyCurrentAnalysis() {
     }
 }
 
-/* =========================================================
-   COPY FALLBACK
-========================================================= */
-
 function fallbackCopy(text) {
     const textarea =
-        document.createElement("textarea");
+        document.createElement(
+            "textarea"
+        );
 
     textarea.value = text;
 
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
+    textarea.style.position =
+        "fixed";
 
-    document.body.appendChild(textarea);
+    textarea.style.opacity =
+        "0";
+
+    document.body.appendChild(
+        textarea
+    );
 
     textarea.select();
 
     try {
-        document.execCommand("copy");
+        document.execCommand(
+            "copy"
+        );
     } catch {
-        /* Ignore clipboard fallback failure */
+        /* Ignore */
     }
 
     textarea.remove();
 }
-
-/* =========================================================
-   BUTTON TEMP TEXT
-========================================================= */
 
 function showTemporaryButtonText(
     button,
@@ -1727,17 +1985,20 @@ function showTemporaryButtonText(
         return;
     }
 
-    const original = button.textContent;
+    const original =
+        button.textContent;
 
-    button.textContent = temporaryText;
+    button.textContent =
+        temporaryText;
 
     setTimeout(() => {
-        button.textContent = original;
+        button.textContent =
+            original;
     }, 1800);
 }
 
 /* =========================================================
-   SHARE ANALYSIS
+   SHARE
 ========================================================= */
 
 async function shareCurrentAnalysis() {
@@ -1750,28 +2011,32 @@ async function shareCurrentAnalysis() {
     }
 
     const text =
-        buildAnalysisText(currentAnalysis);
+        buildAnalysisText(
+            currentAnalysis
+        );
 
     if (
         navigator.share &&
-        typeof navigator.share === "function"
+        typeof navigator.share ===
+            "function"
     ) {
         try {
             await navigator.share({
-                title: "AI JobGuard Analysis",
+                title:
+                    "AI JobGuard Analysis",
                 text
             });
 
             return;
         } catch {
-            /*
-               User may cancel sharing.
-            */
+            /* User cancelled */
         }
     }
 
     try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(
+            text
+        );
 
         showTemporaryButtonText(
             shareAnalysis,
@@ -1803,83 +2068,83 @@ function downloadCurrentReport() {
     const analysis =
         currentAnalysis;
 
-    const info = getRiskInformation(
-        analysis.risk.level,
-        analysis.risk.score
-    );
+    const info =
+        getRiskInformation(
+            analysis.risk.level,
+            analysis.risk.score
+        );
 
-    const warnings = analysis.triggeredRules.length
-        ? analysis.triggeredRules
-              .map(
-                  (rule) =>
-                      `<li><strong>${escapeHTML(
-                          rule.name
-                      )}</strong> — ${escapeHTML(
-                          rule.warning
-                      )}</li>`
-              )
-              .join("")
-        : "<li>No major warning patterns detected.</li>";
+    const warnings =
+        analysis.triggeredRules.length
+            ? analysis.triggeredRules
+                  .map(
+                      (rule) =>
+                          `<li><strong>${escapeHTML(
+                              rule.name
+                          )}</strong> — ${escapeHTML(
+                              rule.warning
+                          )}</li>`
+                  )
+                  .join("")
+            : "<li>No major warning patterns detected.</li>";
 
     const reportHTML = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-
 <title>AI JobGuard Report</title>
 
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        max-width: 850px;
-        margin: 40px auto;
-        padding: 0 20px;
-        color: #172033;
-        line-height: 1.6;
-    }
+body {
+    font-family: Arial, sans-serif;
+    max-width: 850px;
+    margin: 40px auto;
+    padding: 0 20px;
+    color: #172033;
+    line-height: 1.6;
+}
 
-    h1 {
-        color: #087ea4;
-    }
+h1 {
+    color: #087ea4;
+}
 
-    .score {
-        font-size: 42px;
-        font-weight: bold;
-    }
+.score {
+    font-size: 42px;
+    font-weight: bold;
+}
 
-    .level {
-        display: inline-block;
-        padding: 7px 12px;
-        border-radius: 20px;
-        background: #eef4ff;
-        font-weight: bold;
-    }
+.level {
+    display: inline-block;
+    padding: 7px 12px;
+    border-radius: 20px;
+    background: #eef4ff;
+    font-weight: bold;
+}
 
-    .box {
-        padding: 18px;
-        margin: 18px 0;
-        border: 1px solid #d8dfeb;
-        border-radius: 12px;
-    }
+.box {
+    padding: 18px;
+    margin: 18px 0;
+    border: 1px solid #d8dfeb;
+    border-radius: 12px;
+}
 
-    li {
-        margin-bottom: 8px;
-    }
+li {
+    margin-bottom: 8px;
+}
 
-    .source {
-        white-space: pre-wrap;
-        background: #f5f7fb;
-        padding: 15px;
-        border-radius: 10px;
-    }
+.source {
+    white-space: pre-wrap;
+    background: #f5f7fb;
+    padding: 15px;
+    border-radius: 10px;
+}
 
-    .disclaimer {
-        color: #68738a;
-        font-size: 12px;
-    }
+.disclaimer {
+    color: #68738a;
+    font-size: 12px;
+}
 </style>
-
 </head>
 
 <body>
@@ -1890,6 +2155,7 @@ function downloadCurrentReport() {
 
 <div class="box">
     <div>Risk Score</div>
+
     <div class="score">
         ${analysis.risk.score}/100
     </div>
@@ -1901,11 +2167,14 @@ function downloadCurrentReport() {
 
 <div class="box">
     <h2>Explanation</h2>
-    <p>${escapeHTML(info.explanation)}</p>
+    <p>${escapeHTML(
+        info.explanation
+    )}</p>
 </div>
 
 <div class="box">
     <h2>Warning Signs</h2>
+
     <ul>
         ${warnings}
     </ul>
@@ -1931,7 +2200,9 @@ function downloadCurrentReport() {
     <h2>Recommendation</h2>
 
     <p>
-        ${escapeHTML(info.recommendation)}
+        ${escapeHTML(
+            info.recommendation
+        )}
     </p>
 </div>
 
@@ -1939,7 +2210,9 @@ function downloadCurrentReport() {
     <h2>Submitted Job Text</h2>
 
     <div class="source">
-        ${escapeHTML(analysis.text)}
+        ${escapeHTML(
+            analysis.text
+        )}
     </div>
 </div>
 
@@ -1954,24 +2227,32 @@ function downloadCurrentReport() {
 </html>
     `.trim();
 
-    const blob = new Blob(
-        [reportHTML],
-        {
-            type: "text/html"
-        }
-    );
+    const blob =
+        new Blob(
+            [reportHTML],
+            {
+                type: "text/html"
+            }
+        );
 
     const url =
-        URL.createObjectURL(blob);
+        URL.createObjectURL(
+            blob
+        );
 
     const link =
-        document.createElement("a");
+        document.createElement(
+            "a"
+        );
 
     link.href = url;
+
     link.download =
         `AI-JobGuard-Report-${Date.now()}.html`;
 
-    document.body.appendChild(link);
+    document.body.appendChild(
+        link
+    );
 
     link.click();
 
@@ -1990,15 +2271,17 @@ function downloadCurrentReport() {
 ========================================================= */
 
 function handleClearHistory() {
-    const history = getHistory();
+    const history =
+        getHistory();
 
     if (!history.length) {
         return;
     }
 
-    const confirmed = window.confirm(
-        "Clear all AI JobGuard analysis history?"
-    );
+    const confirmed =
+        window.confirm(
+            "Clear all AI JobGuard analysis history?"
+        );
 
     if (!confirmed) {
         return;
@@ -2012,60 +2295,27 @@ function handleClearHistory() {
 }
 
 /* =========================================================
-   LANGUAGE
-========================================================= */
-
-function handleLanguageChange() {
-    if (!languageSelector) {
-        return;
-    }
-
-    currentLanguage =
-        languageSelector.value || "en";
-
-    /*
-       Keep the analyzer functional while providing
-       language-aware loading/risk labels.
-    */
-
-    const status =
-        document.querySelector(
-            ".system-status"
-        );
-
-    if (status) {
-        const dot =
-            status.querySelector(
-                ".status-dot"
-            );
-
-        status.textContent =
-            translations[currentLanguage]
-                .systemOnline;
-
-        if (dot) {
-            status.prepend(dot);
-        }
-    }
-}
-
-/* =========================================================
    NAVIGATION
 ========================================================= */
 
 function setupNavigation() {
-    const links = $$(".nav-links a");
+    const links =
+        $$(".nav-links a");
 
     links.forEach((link) => {
         link.addEventListener(
             "click",
             (event) => {
                 const href =
-                    link.getAttribute("href");
+                    link.getAttribute(
+                        "href"
+                    );
 
                 if (
                     !href ||
-                    !href.startsWith("#")
+                    !href.startsWith(
+                        "#"
+                    )
                 ) {
                     return;
                 }
@@ -2082,7 +2332,8 @@ function setupNavigation() {
                 event.preventDefault();
 
                 target.scrollIntoView({
-                    behavior: "smooth",
+                    behavior:
+                        "smooth",
                     block: "start"
                 });
             }
@@ -2091,7 +2342,7 @@ function setupNavigation() {
 }
 
 /* =========================================================
-   LIVE BACKGROUND
+   BACKGROUND PARTICLES
 ========================================================= */
 
 function initBackground() {
@@ -2105,7 +2356,9 @@ function initBackground() {
     }
 
     const ctx =
-        canvas.getContext("2d");
+        canvas.getContext(
+            "2d"
+        );
 
     if (!ctx) {
         return;
@@ -2121,15 +2374,18 @@ function initBackground() {
     function resizeCanvas() {
         const ratio =
             Math.min(
-                window.devicePixelRatio || 1,
+                window.devicePixelRatio ||
+                    1,
                 2
             );
 
         canvas.width =
-            window.innerWidth * ratio;
+            window.innerWidth *
+            ratio;
 
         canvas.height =
-            window.innerHeight * ratio;
+            window.innerHeight *
+            ratio;
 
         canvas.style.width =
             `${window.innerWidth}px`;
@@ -2158,19 +2414,23 @@ function initBackground() {
                 window.innerHeight,
 
             radius:
-                Math.random() * 1.6 +
+                Math.random() *
+                    1.6 +
                 0.4,
 
             speedX:
-                (Math.random() - 0.5) *
+                (Math.random() -
+                    0.5) *
                 0.22,
 
             speedY:
-                (Math.random() - 0.5) *
+                (Math.random() -
+                    0.5) *
                 0.22,
 
             alpha:
-                Math.random() * 0.5 +
+                Math.random() *
+                    0.5 +
                 0.15
         };
     }
@@ -2202,7 +2462,8 @@ function initBackground() {
                     particle.speedY;
 
                 if (
-                    particle.x < -20 ||
+                    particle.x <
+                        -20 ||
                     particle.x >
                         window.innerWidth +
                             20
@@ -2213,7 +2474,8 @@ function initBackground() {
                 }
 
                 if (
-                    particle.y < -20 ||
+                    particle.y <
+                        -20 ||
                     particle.y >
                         window.innerHeight +
                             20
@@ -2234,15 +2496,11 @@ function initBackground() {
                 );
 
                 ctx.fillStyle =
-                    `rgba(32, 217, 255, ${particle.alpha})`;
+                    `rgba(32,217,255,${particle.alpha})`;
 
                 ctx.fill();
             }
         );
-
-        /*
-           Connect nearby particles.
-        */
 
         for (
             let i = 0;
@@ -2272,7 +2530,9 @@ function initBackground() {
                             dy * dy
                     );
 
-                if (distance < 115) {
+                if (
+                    distance < 115
+                ) {
                     const opacity =
                         (1 -
                             distance /
@@ -2292,7 +2552,7 @@ function initBackground() {
                     );
 
                     ctx.strokeStyle =
-                        `rgba(57, 123, 255, ${opacity})`;
+                        `rgba(57,123,255,${opacity})`;
 
                     ctx.lineWidth = 1;
 
@@ -2370,13 +2630,6 @@ function setupEventListeners() {
         );
     }
 
-    if (languageSelector) {
-        languageSelector.addEventListener(
-            "change",
-            handleLanguageChange
-        );
-    }
-
     $$(".sample-button").forEach(
         (button) => {
             button.addEventListener(
@@ -2392,18 +2645,14 @@ function setupEventListeners() {
         }
     );
 
-    /*
-       Keyboard shortcut:
-       Ctrl + Enter = Analyze
-    */
-
     if (jobDescription) {
         jobDescription.addEventListener(
             "keydown",
             (event) => {
                 if (
                     event.ctrlKey &&
-                    event.key === "Enter"
+                    event.key ===
+                        "Enter"
                 ) {
                     event.preventDefault();
 
@@ -2429,20 +2678,11 @@ function init() {
 
     initBackground();
 
-    /*
-       Hide result section initially.
-    */
-
     if (resultSection) {
         resultSection.classList.add(
             "hidden"
         );
     }
-
-    /*
-       Make sure error/loading states
-       start hidden.
-    */
 
     if (loadingArea) {
         loadingArea.classList.add(
