@@ -397,10 +397,6 @@ function detectContacts(text) {
             /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
         ) || [];
 
-    /*
-       Possible UPI IDs.
-       Exclude normal email addresses already detected.
-    */
     const upiCandidates =
         text.match(
             /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}\b/g
@@ -541,7 +537,10 @@ function evaluateRules(text) {
 
     rules.forEach((rule) => {
         const matched = rule.patterns.some(
-            (pattern) => pattern.test(text)
+            (pattern) => {
+                pattern.lastIndex = 0;
+                return pattern.test(text);
+            }
         );
 
         if (matched) {
@@ -572,12 +571,9 @@ function calculateRisk(
 ) {
     let score = 0;
 
-    /* Primary rule signals */
     triggeredRules.forEach((rule) => {
         score += rule.points;
     });
-
-    /* Contextual signals */
 
     if (personalData.length >= 2) {
         score += 10;
@@ -594,19 +590,15 @@ function calculateRisk(
         salaryInfo.unrealistic &&
         !triggeredRules.some(
             (rule) =>
-                rule.key ===
-                "unrealisticSalary"
+                rule.key === "unrealisticSalary"
         )
     ) {
         score += 10;
     }
 
-    /* Strong combinations */
-
     const hasPayment =
         triggeredRules.some(
-            (rule) =>
-                rule.key === "payment"
+            (rule) => rule.key === "payment"
         );
 
     const hasSensitiveData =
@@ -623,25 +615,19 @@ function calculateRisk(
 
     const hasUrgency =
         triggeredRules.some(
-            (rule) =>
-                rule.key === "urgency"
+            (rule) => rule.key === "urgency"
         );
 
     const hasInstantSelection =
         triggeredRules.some(
-            (rule) =>
-                rule.key ===
-                "fakeSelection"
+            (rule) => rule.key === "fakeSelection"
         );
 
     if (hasPayment && hasUrgency) {
         score += 10;
     }
 
-    if (
-        hasPayment &&
-        hasSensitiveData
-    ) {
+    if (hasPayment && hasSensitiveData) {
         score += 10;
     }
 
@@ -651,8 +637,6 @@ function calculateRisk(
     ) {
         score += 8;
     }
-
-    /* Final score */
 
     score = Math.min(
         100,
@@ -693,9 +677,7 @@ function buildBreakdown(triggeredRules) {
         },
         {
             name: "Salary Claims",
-            keys: [
-                "unrealisticSalary"
-            ]
+            keys: ["unrealisticSalary"]
         },
         {
             name: "Urgency",
@@ -720,40 +702,35 @@ function buildBreakdown(triggeredRules) {
         },
         {
             name: "Suspicious Language",
-            keys: [
-                "suspiciousLanguage"
-            ]
+            keys: ["suspiciousLanguage"]
         }
     ];
 
-    return categories.map(
-        (category) => {
-            const matches =
-                triggeredRules.filter(
-                    (rule) =>
-                        category.keys.includes(
-                            rule.key
-                        )
-                );
+    return categories.map((category) => {
+        const matches =
+            triggeredRules.filter(
+                (rule) =>
+                    category.keys.includes(
+                        rule.key
+                    )
+            );
 
-            const points =
-                matches.reduce(
-                    (total, rule) =>
-                        total +
-                        rule.points,
-                    0
-                );
+        const points =
+            matches.reduce(
+                (total, rule) =>
+                    total + rule.points,
+                0
+            );
 
-            return {
-                name: category.name,
-                points: Math.min(
-                    points,
-                    100
-                ),
-                max: 100
-            };
-        }
-    );
+        return {
+            name: category.name,
+            points: Math.min(
+                points,
+                100
+            ),
+            max: 100
+        };
+    });
 }
 
 /* =========================================================
@@ -766,14 +743,10 @@ function getRiskInformation(
 ) {
     if (level === "high") {
         return {
-            title:
-                "High Risk Job Posting",
-
+            title: "High Risk Job Posting",
             pill: "HIGH RISK",
-
             explanation:
                 `This posting contains multiple strong warning signs. The calculated risk score is ${score}/100.`,
-
             recommendation:
                 "Do not make payments or share OTPs, UPI PINs or sensitive financial information. Verify the employer through its official website and independently obtained contact details."
         };
@@ -781,28 +754,20 @@ function getRiskInformation(
 
     if (level === "suspicious") {
         return {
-            title:
-                "Suspicious Job Posting",
-
+            title: "Suspicious Job Posting",
             pill: "SUSPICIOUS",
-
             explanation:
                 `This posting contains several warning indicators. The calculated risk score is ${score}/100.`,
-
             recommendation:
                 "Verify the company, recruiter identity, official email domain, interview process and compensation before proceeding."
         };
     }
 
     return {
-        title:
-            "Lower Risk Pattern",
-
+        title: "Lower Risk Pattern",
         pill: "LOW RISK",
-
         explanation:
             `The posting contains fewer predefined warning indicators. The calculated risk score is ${score}/100. This does not prove that the employer is genuine.`,
-
         recommendation:
             "Continue to verify the employer independently and use the official company careers page whenever possible."
     };
@@ -824,22 +789,17 @@ function renderWarnings(
         triggeredRules.map(
             (rule) => ({
                 title: rule.name,
-                description:
-                    rule.warning
+                description: rule.warning
             })
         );
 
-    personalData.forEach(
-        (item) => {
-            warnings.push({
-                title:
-                    "Sensitive Information Detected",
-
-                description:
-                    `The text mentions ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
-            });
-        }
-    );
+    personalData.forEach((item) => {
+        warnings.push({
+            title: "Sensitive Information Detected",
+            description:
+                `The text mentions ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
+        });
+    });
 
     if (!warnings.length) {
         warningList.innerHTML = `
@@ -883,9 +843,7 @@ function renderWarnings(
    BREAKDOWN RENDER
 ========================================================= */
 
-function renderBreakdown(
-    breakdown
-) {
+function renderBreakdown(breakdown) {
     if (!riskBreakdown) {
         return;
     }
@@ -928,9 +886,7 @@ function renderBreakdown(
    CONTACT ANALYSIS
 ========================================================= */
 
-function renderContactAnalysis(
-    contacts
-) {
+function renderContactAnalysis(contacts) {
     if (!contactAnalysis) {
         return;
     }
@@ -940,48 +896,35 @@ function renderContactAnalysis(
             label: "Phone numbers",
             value:
                 contacts.phones.length
-                    ? contacts.phones.join(
-                          ", "
-                      )
+                    ? contacts.phones.join(", ")
                     : "None detected"
         },
         {
-            label:
-                "Email addresses",
+            label: "Email addresses",
             value:
                 contacts.emails.length
-                    ? contacts.emails.join(
-                          ", "
-                      )
+                    ? contacts.emails.join(", ")
                     : "None detected"
         },
         {
             label: "Personal email",
             value:
-                contacts.personalEmails
-                    .length
-                    ? contacts.personalEmails.join(
-                          ", "
-                      )
+                contacts.personalEmails.length
+                    ? contacts.personalEmails.join(", ")
                     : "None detected"
         },
         {
             label: "URLs",
             value:
                 contacts.urls.length
-                    ? contacts.urls.join(
-                          ", "
-                      )
+                    ? contacts.urls.join(", ")
                     : "None detected"
         },
         {
-            label:
-                "Possible UPI IDs",
+            label: "Possible UPI IDs",
             value:
                 contacts.upi.length
-                    ? contacts.upi.join(
-                          ", "
-                      )
+                    ? contacts.upi.join(", ")
                     : "None detected"
         }
     ];
@@ -1019,9 +962,7 @@ function renderContactAnalysis(
    SALARY ANALYSIS
 ========================================================= */
 
-function renderSalaryAnalysis(
-    salaryInfo
-) {
+function renderSalaryAnalysis(salaryInfo) {
     if (!salaryAnalysis) {
         return;
     }
@@ -1037,8 +978,7 @@ function renderSalaryAnalysis(
 
                 <span class="analysis-value">
                     ${
-                        salaryInfo.matches
-                            .length
+                        salaryInfo.matches.length
                             ? escapeHTML(
                                   salaryInfo.matches.join(
                                       ", "
@@ -1072,9 +1012,7 @@ function renderSalaryAnalysis(
    PERSONAL DATA WARNING
 ========================================================= */
 
-function renderPersonalDataWarning(
-    personalData
-) {
+function renderPersonalDataWarning(personalData) {
     if (!personalDataWarning) {
         return;
     }
@@ -1084,8 +1022,7 @@ function renderPersonalDataWarning(
             "hidden"
         );
 
-        personalDataWarning.innerHTML =
-            "";
+        personalDataWarning.innerHTML = "";
 
         return;
     }
@@ -1117,11 +1054,6 @@ function highlightText(
     text,
     triggeredRules
 ) {
-    /*
-       Keep highlighting safe by working with
-       escaped text and only known phrases.
-    */
-
     let result = escapeHTML(text);
 
     const phrases = new Map();
@@ -1147,8 +1079,7 @@ function highlightText(
         if (
             !existing ||
             (type === "risk" &&
-                existing.type !==
-                    "risk")
+                existing.type !== "risk")
         ) {
             phrases.set(key, {
                 phrase: clean,
@@ -1157,76 +1088,40 @@ function highlightText(
         }
     }
 
-    triggeredRules.forEach(
-        (rule) => {
-            rule.patterns.forEach(
-                (pattern) => {
-                    const source =
-                        pattern.source;
+    triggeredRules.forEach((rule) => {
+        rule.patterns.forEach((pattern) => {
+            const source = pattern.source;
 
-                    /*
-                       Only extract simple literal
-                       patterns for visual highlighting.
-                    */
+            if (
+                source.includes(".*") ||
+                source.includes(".{") ||
+                source.includes("\\d") ||
+                source.includes("\\b")
+            ) {
+                return;
+            }
 
-                    if (
-                        source.includes(
-                            ".*"
-                        ) ||
-                        source.includes(
-                            ".{"
-                        ) ||
-                        source.includes(
-                            "\\d"
-                        ) ||
-                        source.includes(
-                            "\\b"
-                        )
-                    ) {
-                        return;
-                    }
+            const cleaned =
+                source
+                    .replace(/^\\b/, "")
+                    .replace(/\\b$/, "")
+                    .replace(/\\/g, "")
+                    .replace(/\([^)]*\)/g, "")
+                    .replace(/\?/g, "");
 
-                    const cleaned =
-                        source
-                            .replace(
-                                /^\\b/,
-                                ""
-                            )
-                            .replace(
-                                /\\b$/,
-                                ""
-                            )
-                            .replace(
-                                /\\/g,
-                                ""
-                            )
-                            .replace(
-                                /\([^)]*\)/g,
-                                ""
-                            )
-                            .replace(
-                                /\?/g,
-                                ""
-                            );
-
-                    if (
-                        cleaned.length >=
-                        3 &&
-                        cleaned.length <=
-                        80
-                    ) {
-                        addPhrase(
-                            cleaned,
-                            rule.points >=
-                                25
-                                ? "risk"
-                                : "warning"
-                        );
-                    }
-                }
-            );
-        }
-    );
+            if (
+                cleaned.length >= 3 &&
+                cleaned.length <= 80
+            ) {
+                addPhrase(
+                    cleaned,
+                    rule.points >= 25
+                        ? "risk"
+                        : "warning"
+                );
+            }
+        });
+    });
 
     const commonRiskPhrases = [
         "registration fee",
@@ -1245,14 +1140,12 @@ function highlightText(
         "pay"
     ];
 
-    commonRiskPhrases.forEach(
-        (phrase) => {
-            addPhrase(
-                phrase,
-                "risk"
-            );
-        }
-    );
+    commonRiskPhrases.forEach((phrase) => {
+        addPhrase(
+            phrase,
+            "risk"
+        );
+    });
 
     const commonWarningPhrases = [
         "limited vacancies",
@@ -1263,14 +1156,12 @@ function highlightText(
         "immediate joining"
     ];
 
-    commonWarningPhrases.forEach(
-        (phrase) => {
-            addPhrase(
-                phrase,
-                "warning"
-            );
-        }
-    );
+    commonWarningPhrases.forEach((phrase) => {
+        addPhrase(
+            phrase,
+            "warning"
+        );
+    });
 
     const ordered =
         [...phrases.values()].sort(
@@ -1279,33 +1170,31 @@ function highlightText(
                 a.phrase.length
         );
 
-    ordered.forEach(
-        (item) => {
-            const escapedPhrase =
-                escapeHTML(
-                    item.phrase
-                ).replace(
-                    /[.*+?^${}()|[\]\\]/g,
-                    "\\$&"
+    ordered.forEach((item) => {
+        const escapedPhrase =
+            escapeHTML(
+                item.phrase
+            ).replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+        try {
+            const regex =
+                new RegExp(
+                    `(${escapedPhrase})`,
+                    "gi"
                 );
 
-            try {
-                const regex =
-                    new RegExp(
-                        `(${escapedPhrase})`,
-                        "gi"
-                    );
-
-                result =
-                    result.replace(
-                        regex,
-                        `<mark class="highlight-${item.type}">$1</mark>`
-                    );
-            } catch {
-                /* Ignore invalid highlight patterns */
-            }
+            result =
+                result.replace(
+                    regex,
+                    `<mark class="highlight-${item.type}">$1</mark>`
+                );
+        } catch {
+            /* Ignore invalid highlight patterns */
         }
-    );
+    });
 
     return result;
 }
@@ -1325,8 +1214,7 @@ function buildDetailedExplanation(
     if (triggeredRules.length) {
         paragraphs.push(
             `The analyzer detected ${triggeredRules.length} warning pattern${
-                triggeredRules.length ===
-                1
+                triggeredRules.length === 1
                     ? ""
                     : "s"
             } in the submitted job text.`
@@ -1338,8 +1226,7 @@ function buildDetailedExplanation(
     }
 
     if (
-        contacts.personalEmails
-            .length
+        contacts.personalEmails.length
     ) {
         paragraphs.push(
             `A free email provider was detected: ${contacts.personalEmails.join(
@@ -1380,9 +1267,7 @@ function buildDetailedExplanation(
    DISPLAY RESULT
 ========================================================= */
 
-function displayResult(
-    analysis
-) {
+function displayResult(analysis) {
     if (!resultSection) {
         return;
     }
@@ -1588,11 +1473,6 @@ const scanStages = [
     "Preparing explainable results..."
 ];
 
-/*
-   Exact progress requested:
-   12, 25, 37, 50, 62, 75, 87, 100
-*/
-
 const scanProgressValues = [
     12,
     25,
@@ -1604,16 +1484,31 @@ const scanProgressValues = [
     100
 ];
 
-function updateScanProgress(
-    progress
-) {
+function updateScanProgress(progress) {
+    const safeProgress =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Number(progress) || 0
+            )
+        );
+
     if (scanProgressFill) {
         scanProgressFill.style.width =
-            `${progress}%`;
+            `${safeProgress}%`;
     }
 }
 
 function showLoading() {
+    if (scanTimer) {
+        clearInterval(
+            scanTimer
+        );
+
+        scanTimer = null;
+    }
+
     if (loadingArea) {
         loadingArea.classList.remove(
             "hidden"
@@ -1771,9 +1666,7 @@ function getHistory() {
     }
 }
 
-function saveHistory(
-    analysis
-) {
+function saveHistory(analysis) {
     const history =
         getHistory();
 
@@ -1808,19 +1701,15 @@ function saveHistory(
    HISTORY RENDER
 ========================================================= */
 
-function formatDate(
-    dateString
-) {
+function formatDate(dateString) {
     try {
         return new Date(
             dateString
         ).toLocaleString(
             undefined,
             {
-                dateStyle:
-                    "medium",
-                timeStyle:
-                    "short"
+                dateStyle: "medium",
+                timeStyle: "short"
             }
         );
     } catch {
@@ -1844,8 +1733,7 @@ function renderHistory() {
         highRiskCount.textContent =
             history.filter(
                 (item) =>
-                    item.level ===
-                    "high"
+                    item.level === "high"
             ).length;
 
         suspiciousCount.textContent =
@@ -1858,8 +1746,7 @@ function renderHistory() {
         lowRiskCount.textContent =
             history.filter(
                 (item) =>
-                    item.level ===
-                    "low"
+                    item.level === "low"
             ).length;
     }
 
@@ -1996,15 +1883,15 @@ async function handleAnalyze() {
 
     /*
        8 stages × 400ms = 3200ms.
-       Small additional delay ensures 100%
-       is visible before result appears.
+       Additional 500ms keeps 100% visible
+       before the final result is revealed.
     */
 
     await new Promise(
         (resolve) =>
             setTimeout(
                 resolve,
-                3600
+                3700
             )
     );
 
@@ -2044,9 +1931,7 @@ async function handleAnalyze() {
    ERROR
 ========================================================= */
 
-function showError(
-    message
-) {
+function showError(message) {
     if (!errorMessage) {
         return;
     }
@@ -2073,6 +1958,11 @@ function updateCharacterCount() {
 
     const length =
         jobDescription.value.length;
+
+    /*
+       Required display:
+       0 / 10000
+    */
 
     characterCount.textContent =
         `${length.toLocaleString()} / ${MAX_TEXT_LENGTH.toLocaleString()}`;
@@ -2126,8 +2016,7 @@ function clearAnalyzer() {
     }
 
     if (analyzeButton) {
-        analyzeButton.disabled =
-            false;
+        analyzeButton.disabled = false;
     }
 
     updateScanProgress(0);
@@ -2143,9 +2032,7 @@ function clearAnalyzer() {
    SAMPLE LOADER
 ========================================================= */
 
-function loadSample(
-    type
-) {
+function loadSample(type) {
     if (!jobDescription) {
         return;
     }
@@ -2189,9 +2076,10 @@ function loadSample(
     }
 
     if (analyzeButton) {
-        analyzeButton.disabled =
-            false;
+        analyzeButton.disabled = false;
     }
+
+    updateScanProgress(0);
 
     currentAnalysis = null;
 
@@ -2211,9 +2099,7 @@ function loadSample(
    ANALYSIS TEXT
 ========================================================= */
 
-function buildAnalysisText(
-    analysis
-) {
+function buildAnalysisText(analysis) {
     if (!analysis) {
         return "";
     }
@@ -2324,9 +2210,7 @@ async function copyCurrentAnalysis() {
     }
 }
 
-function fallbackCopy(
-    text
-) {
+function fallbackCopy(text) {
     const textarea =
         document.createElement(
             "textarea"
@@ -2409,10 +2293,7 @@ async function shareCurrentAnalysis() {
 
             return;
         } catch {
-            /*
-               User cancelled share.
-               Do not show an error.
-            */
+            /* User cancelled share */
         }
     }
 
@@ -2726,54 +2607,46 @@ function setupNavigation() {
     const links =
         $$(".nav-links a");
 
-    links.forEach(
-        (link) => {
-            link.addEventListener(
-                "click",
-                (event) => {
-                    const href =
-                        link.getAttribute(
-                            "href"
-                        );
-
-                    if (
-                        !href ||
-                        !href.startsWith(
-                            "#"
-                        )
-                    ) {
-                        return;
-                    }
-
-                    let target = null;
-
-                    try {
-                        target =
-                            document.querySelector(
-                                href
-                            );
-                    } catch {
-                        return;
-                    }
-
-                    if (!target) {
-                        return;
-                    }
-
-                    event.preventDefault();
-
-                    target.scrollIntoView(
-                        {
-                            behavior:
-                                "smooth",
-                            block:
-                                "start"
-                        }
+    links.forEach((link) => {
+        link.addEventListener(
+            "click",
+            (event) => {
+                const href =
+                    link.getAttribute(
+                        "href"
                     );
+
+                if (
+                    !href ||
+                    !href.startsWith("#")
+                ) {
+                    return;
                 }
-            );
-        }
-    );
+
+                let target = null;
+
+                try {
+                    target =
+                        document.querySelector(
+                            href
+                        );
+                } catch {
+                    return;
+                }
+
+                if (!target) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                target.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }
+        );
+    });
 }
 
 /* =========================================================
@@ -2791,9 +2664,7 @@ function initBackground() {
     }
 
     const ctx =
-        canvas.getContext(
-            "2d"
-        );
+        canvas.getContext("2d");
 
     if (!ctx) {
         return;
@@ -3086,8 +2957,7 @@ function setupEventListeners() {
             (event) => {
                 if (
                     event.ctrlKey &&
-                    event.key ===
-                        "Enter"
+                    event.key === "Enter"
                 ) {
                     event.preventDefault();
 
