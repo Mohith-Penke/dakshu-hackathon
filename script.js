@@ -10,6 +10,7 @@
 ========================================================= */
 
 const STORAGE_KEY = "aiJobGuardHistory";
+const MAX_TEXT_LENGTH = 10000;
 
 let currentAnalysis = null;
 let scanTimer = null;
@@ -19,7 +20,6 @@ let scanTimer = null;
 ========================================================= */
 
 const $ = (selector) => document.querySelector(selector);
-
 const $$ = (selector) => document.querySelectorAll(selector);
 
 function escapeHTML(value) {
@@ -43,6 +43,8 @@ const analyzeButton = $("#analyzeButton");
 
 const loadingArea = $("#loadingArea");
 const loadingText = $("#loadingText");
+const scanProgressFill = $(".scan-progress-fill");
+
 const errorMessage = $("#errorMessage");
 
 const resultSection = $("#resultSection");
@@ -395,13 +397,29 @@ function detectContacts(text) {
             /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi
         ) || [];
 
-    const upi =
+    /*
+       Possible UPI IDs.
+       Exclude normal email addresses already detected.
+    */
+    const upiCandidates =
         text.match(
             /\b[a-zA-Z0-9._-]{2,}@[a-zA-Z]{2,}\b/g
         ) || [];
 
+    const upi =
+        upiCandidates.filter(
+            (value) =>
+                !emails.some(
+                    (email) =>
+                        email.toLowerCase() ===
+                        value.toLowerCase()
+                )
+        );
+
     const personalEmails = emails.filter((email) =>
-        /(gmail|yahoo|outlook|hotmail|protonmail)\./i.test(email)
+        /(gmail|yahoo|outlook|hotmail|protonmail)\./i.test(
+            email
+        )
     );
 
     return {
@@ -496,7 +514,8 @@ function analyzeSalary(text) {
             return number >= 50000;
         });
 
-    let message = "No obvious salary red flag detected.";
+    let message =
+        "No obvious salary red flag detected.";
 
     if (unrealistic) {
         message =
@@ -521,8 +540,8 @@ function evaluateRules(text) {
     const triggered = [];
 
     rules.forEach((rule) => {
-        const matched = rule.patterns.some((pattern) =>
-            pattern.test(text)
+        const matched = rule.patterns.some(
+            (pattern) => pattern.test(text)
         );
 
         if (matched) {
@@ -539,6 +558,12 @@ function evaluateRules(text) {
    RISK SCORE
 ========================================================= */
 
+function hasNoInterview(triggeredRules) {
+    return triggeredRules.some(
+        (rule) => rule.key === "noInterview"
+    );
+}
+
 function calculateRisk(
     triggeredRules,
     personalData,
@@ -547,17 +572,12 @@ function calculateRisk(
 ) {
     let score = 0;
 
-    /*
-       Primary rule signals.
-    */
-
+    /* Primary rule signals */
     triggeredRules.forEach((rule) => {
         score += rule.points;
     });
 
-    /*
-       Contextual signals.
-    */
+    /* Contextual signals */
 
     if (personalData.length >= 2) {
         score += 10;
@@ -573,21 +593,21 @@ function calculateRisk(
     if (
         salaryInfo.unrealistic &&
         !triggeredRules.some(
-            (rule) => rule.key === "unrealisticSalary"
+            (rule) =>
+                rule.key ===
+                "unrealisticSalary"
         )
     ) {
         score += 10;
     }
 
-    /*
-       Strong combinations.
-       These combinations are more meaningful than
-       isolated weak signals.
-    */
+    /* Strong combinations */
 
-    const hasPayment = triggeredRules.some(
-        (rule) => rule.key === "payment"
-    );
+    const hasPayment =
+        triggeredRules.some(
+            (rule) =>
+                rule.key === "payment"
+        );
 
     const hasSensitiveData =
         personalData.length > 0 ||
@@ -601,31 +621,43 @@ function calculateRisk(
             ].includes(rule.key)
         );
 
-    const hasUrgency = triggeredRules.some(
-        (rule) => rule.key === "urgency"
-    );
+    const hasUrgency =
+        triggeredRules.some(
+            (rule) =>
+                rule.key === "urgency"
+        );
 
-    const hasInstantSelection = triggeredRules.some(
-        (rule) => rule.key === "fakeSelection"
-    );
+    const hasInstantSelection =
+        triggeredRules.some(
+            (rule) =>
+                rule.key ===
+                "fakeSelection"
+        );
 
     if (hasPayment && hasUrgency) {
         score += 10;
     }
 
-    if (hasPayment && hasSensitiveData) {
+    if (
+        hasPayment &&
+        hasSensitiveData
+    ) {
         score += 10;
     }
 
-    if (hasInstantSelection && hasNoInterview(triggeredRules)) {
+    if (
+        hasInstantSelection &&
+        hasNoInterview(triggeredRules)
+    ) {
         score += 8;
     }
 
-    /*
-       Final score.
-    */
+    /* Final score */
 
-    score = Math.min(100, Math.round(score));
+    score = Math.min(
+        100,
+        Math.round(score)
+    );
 
     let level = "low";
 
@@ -639,12 +671,6 @@ function calculateRisk(
         score,
         level
     };
-}
-
-function hasNoInterview(triggeredRules) {
-    return triggeredRules.some(
-        (rule) => rule.key === "noInterview"
-    );
 }
 
 /* =========================================================
@@ -667,7 +693,9 @@ function buildBreakdown(triggeredRules) {
         },
         {
             name: "Salary Claims",
-            keys: ["unrealisticSalary"]
+            keys: [
+                "unrealisticSalary"
+            ]
         },
         {
             name: "Urgency",
@@ -692,41 +720,60 @@ function buildBreakdown(triggeredRules) {
         },
         {
             name: "Suspicious Language",
-            keys: ["suspiciousLanguage"]
+            keys: [
+                "suspiciousLanguage"
+            ]
         }
     ];
 
-    return categories.map((category) => {
-        const matches = triggeredRules.filter(
-            (rule) =>
-                category.keys.includes(rule.key)
-        );
+    return categories.map(
+        (category) => {
+            const matches =
+                triggeredRules.filter(
+                    (rule) =>
+                        category.keys.includes(
+                            rule.key
+                        )
+                );
 
-        const points = matches.reduce(
-            (total, rule) =>
-                total + rule.points,
-            0
-        );
+            const points =
+                matches.reduce(
+                    (total, rule) =>
+                        total +
+                        rule.points,
+                    0
+                );
 
-        return {
-            name: category.name,
-            points: Math.min(points, 100),
-            max: 100
-        };
-    });
+            return {
+                name: category.name,
+                points: Math.min(
+                    points,
+                    100
+                ),
+                max: 100
+            };
+        }
+    );
 }
 
 /* =========================================================
    RISK INFORMATION
 ========================================================= */
 
-function getRiskInformation(level, score) {
+function getRiskInformation(
+    level,
+    score
+) {
     if (level === "high") {
         return {
-            title: "High Risk Job Posting",
+            title:
+                "High Risk Job Posting",
+
             pill: "HIGH RISK",
+
             explanation:
                 `This posting contains multiple strong warning signs. The calculated risk score is ${score}/100.`,
+
             recommendation:
                 "Do not make payments or share OTPs, UPI PINs or sensitive financial information. Verify the employer through its official website and independently obtained contact details."
         };
@@ -734,27 +781,35 @@ function getRiskInformation(level, score) {
 
     if (level === "suspicious") {
         return {
-            title: "Suspicious Job Posting",
+            title:
+                "Suspicious Job Posting",
+
             pill: "SUSPICIOUS",
+
             explanation:
                 `This posting contains several warning indicators. The calculated risk score is ${score}/100.`,
+
             recommendation:
                 "Verify the company, recruiter identity, official email domain, interview process and compensation before proceeding."
         };
     }
 
     return {
-        title: "Lower Risk Pattern",
+        title:
+            "Lower Risk Pattern",
+
         pill: "LOW RISK",
+
         explanation:
             `The posting contains fewer predefined warning indicators. The calculated risk score is ${score}/100. This does not prove that the employer is genuine.`,
+
         recommendation:
             "Continue to verify the employer independently and use the official company careers page whenever possible."
     };
 }
 
 /* =========================================================
-   WARNING LIST / REASONS
+   WARNING LIST
 ========================================================= */
 
 function renderWarnings(
@@ -765,20 +820,26 @@ function renderWarnings(
         return;
     }
 
-    const warnings = triggeredRules.map(
-        (rule) => ({
-            title: rule.name,
-            description: rule.warning
-        })
-    );
+    const warnings =
+        triggeredRules.map(
+            (rule) => ({
+                title: rule.name,
+                description:
+                    rule.warning
+            })
+        );
 
-    personalData.forEach((item) => {
-        warnings.push({
-            title: "Sensitive Information Detected",
-            description:
-                `The text mentions ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
-        });
-    });
+    personalData.forEach(
+        (item) => {
+            warnings.push({
+                title:
+                    "Sensitive Information Detected",
+
+                description:
+                    `The text mentions ${item}. Avoid sharing sensitive personal information unless it is genuinely necessary and securely verified.`
+            });
+        }
+    );
 
     if (!warnings.length) {
         warningList.innerHTML = `
@@ -790,70 +851,86 @@ function renderWarnings(
         return;
     }
 
-    warningList.innerHTML = warnings
-        .map(
-            (warning) => `
-                <div class="warning-item">
-                    <div class="warning-item-icon">!</div>
-
-                    <div class="warning-item-content">
-                        <div class="warning-item-title">
-                            ${escapeHTML(warning.title)}
+    warningList.innerHTML =
+        warnings
+            .map(
+                (warning) => `
+                    <div class="warning-item">
+                        <div class="warning-item-icon">
+                            !
                         </div>
 
-                        <div class="warning-item-description">
-                            ${escapeHTML(warning.description)}
+                        <div class="warning-item-content">
+                            <div class="warning-item-title">
+                                ${escapeHTML(
+                                    warning.title
+                                )}
+                            </div>
+
+                            <div class="warning-item-description">
+                                ${escapeHTML(
+                                    warning.description
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `
-        )
-        .join("");
+                `
+            )
+            .join("");
 }
 
 /* =========================================================
-   BREAKDOWN
+   BREAKDOWN RENDER
 ========================================================= */
 
-function renderBreakdown(breakdown) {
+function renderBreakdown(
+    breakdown
+) {
     if (!riskBreakdown) {
         return;
     }
 
-    riskBreakdown.innerHTML = breakdown
-        .map(
-            (item) => `
-                <div class="breakdown-item">
-                    <div class="breakdown-info">
-                        <div class="breakdown-name">
-                            ${escapeHTML(item.name)}
+    riskBreakdown.innerHTML =
+        breakdown
+            .map(
+                (item) => `
+                    <div class="breakdown-item">
+
+                        <div class="breakdown-info">
+                            <div class="breakdown-name">
+                                ${escapeHTML(
+                                    item.name
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="breakdown-bar">
-                        <div
-                            class="breakdown-bar-fill"
-                            style="width:${Math.min(
-                                item.points,
-                                100
-                            )}%"
-                        ></div>
-                    </div>
+                        <div class="breakdown-bar">
+                            <div
+                                class="breakdown-bar-fill"
+                                style="width:${Math.min(
+                                    item.points,
+                                    100
+                                )}%"
+                            ></div>
+                        </div>
 
-                    <div class="breakdown-points">
-                        ${item.points} pts
+                        <div class="breakdown-points">
+                            ${item.points} pts
+                        </div>
+
                     </div>
-                </div>
-            `
-        )
-        .join("");
+                `
+            )
+            .join("");
 }
 
 /* =========================================================
    CONTACT ANALYSIS
 ========================================================= */
 
-function renderContactAnalysis(contacts) {
+function renderContactAnalysis(
+    contacts
+) {
     if (!contactAnalysis) {
         return;
     }
@@ -861,53 +938,79 @@ function renderContactAnalysis(contacts) {
     const rows = [
         {
             label: "Phone numbers",
-            value: contacts.phones.length
-                ? contacts.phones.join(", ")
-                : "None detected"
+            value:
+                contacts.phones.length
+                    ? contacts.phones.join(
+                          ", "
+                      )
+                    : "None detected"
         },
         {
-            label: "Email addresses",
-            value: contacts.emails.length
-                ? contacts.emails.join(", ")
-                : "None detected"
+            label:
+                "Email addresses",
+            value:
+                contacts.emails.length
+                    ? contacts.emails.join(
+                          ", "
+                      )
+                    : "None detected"
         },
         {
             label: "Personal email",
-            value: contacts.personalEmails.length
-                ? contacts.personalEmails.join(", ")
-                : "None detected"
+            value:
+                contacts.personalEmails
+                    .length
+                    ? contacts.personalEmails.join(
+                          ", "
+                      )
+                    : "None detected"
         },
         {
             label: "URLs",
-            value: contacts.urls.length
-                ? contacts.urls.join(", ")
-                : "None detected"
+            value:
+                contacts.urls.length
+                    ? contacts.urls.join(
+                          ", "
+                      )
+                    : "None detected"
         },
         {
-            label: "Possible UPI IDs",
-            value: contacts.upi.length
-                ? contacts.upi.join(", ")
-                : "None detected"
+            label:
+                "Possible UPI IDs",
+            value:
+                contacts.upi.length
+                    ? contacts.upi.join(
+                          ", "
+                      )
+                    : "None detected"
         }
     ];
 
     contactAnalysis.innerHTML = `
         <div class="analysis-rows">
+
             ${rows
                 .map(
                     (row) => `
                         <div class="analysis-row">
+
                             <span class="analysis-label">
-                                ${escapeHTML(row.label)}
+                                ${escapeHTML(
+                                    row.label
+                                )}
                             </span>
 
                             <span class="analysis-value">
-                                ${escapeHTML(row.value)}
+                                ${escapeHTML(
+                                    row.value
+                                )}
                             </span>
+
                         </div>
                     `
                 )
                 .join("")}
+
         </div>
     `;
 }
@@ -916,30 +1019,39 @@ function renderContactAnalysis(contacts) {
    SALARY ANALYSIS
 ========================================================= */
 
-function renderSalaryAnalysis(salaryInfo) {
+function renderSalaryAnalysis(
+    salaryInfo
+) {
     if (!salaryAnalysis) {
         return;
     }
 
     salaryAnalysis.innerHTML = `
         <div class="analysis-rows">
+
             <div class="analysis-row">
+
                 <span class="analysis-label">
                     Salary mentions
                 </span>
 
                 <span class="analysis-value">
                     ${
-                        salaryInfo.matches.length
+                        salaryInfo.matches
+                            .length
                             ? escapeHTML(
-                                  salaryInfo.matches.join(", ")
+                                  salaryInfo.matches.join(
+                                      ", "
+                                  )
                               )
                             : "None detected"
                     }
                 </span>
+
             </div>
 
             <div class="analysis-row">
+
                 <span class="analysis-label">
                     Assessment
                 </span>
@@ -949,7 +1061,9 @@ function renderSalaryAnalysis(salaryInfo) {
                         salaryInfo.message
                     )}
                 </span>
+
             </div>
+
         </div>
     `;
 }
@@ -970,7 +1084,8 @@ function renderPersonalDataWarning(
             "hidden"
         );
 
-        personalDataWarning.innerHTML = "";
+        personalDataWarning.innerHTML =
+            "";
 
         return;
     }
@@ -980,7 +1095,9 @@ function renderPersonalDataWarning(
     );
 
     personalDataWarning.innerHTML = `
-        <strong>⚠ Sensitive information detected</strong>
+        <strong>
+            ⚠ Sensitive information detected
+        </strong>
 
         <p>
             The submitted text contains references to:
@@ -1000,29 +1117,116 @@ function highlightText(
     text,
     triggeredRules
 ) {
+    /*
+       Keep highlighting safe by working with
+       escaped text and only known phrases.
+    */
+
     let result = escapeHTML(text);
 
-    const phrases = [];
+    const phrases = new Map();
 
-    triggeredRules.forEach((rule) => {
-        rule.patterns.forEach((pattern) => {
-            const source = pattern.source;
+    function addPhrase(
+        phrase,
+        type
+    ) {
+        const clean =
+            String(phrase)
+                .trim();
 
-            if (
-                !source.includes(".*") &&
-                !source.includes(".{") &&
-                !source.includes("\\d")
-            ) {
-                phrases.push({
-                    source,
-                    type:
-                        rule.points >= 25
-                            ? "risk"
-                            : "warning"
-                });
-            }
-        });
-    });
+        if (!clean) {
+            return;
+        }
+
+        const key =
+            clean.toLowerCase();
+
+        const existing =
+            phrases.get(key);
+
+        if (
+            !existing ||
+            (type === "risk" &&
+                existing.type !==
+                    "risk")
+        ) {
+            phrases.set(key, {
+                phrase: clean,
+                type
+            });
+        }
+    }
+
+    triggeredRules.forEach(
+        (rule) => {
+            rule.patterns.forEach(
+                (pattern) => {
+                    const source =
+                        pattern.source;
+
+                    /*
+                       Only extract simple literal
+                       patterns for visual highlighting.
+                    */
+
+                    if (
+                        source.includes(
+                            ".*"
+                        ) ||
+                        source.includes(
+                            ".{"
+                        ) ||
+                        source.includes(
+                            "\\d"
+                        ) ||
+                        source.includes(
+                            "\\b"
+                        )
+                    ) {
+                        return;
+                    }
+
+                    const cleaned =
+                        source
+                            .replace(
+                                /^\\b/,
+                                ""
+                            )
+                            .replace(
+                                /\\b$/,
+                                ""
+                            )
+                            .replace(
+                                /\\/g,
+                                ""
+                            )
+                            .replace(
+                                /\([^)]*\)/g,
+                                ""
+                            )
+                            .replace(
+                                /\?/g,
+                                ""
+                            );
+
+                    if (
+                        cleaned.length >=
+                        3 &&
+                        cleaned.length <=
+                        80
+                    ) {
+                        addPhrase(
+                            cleaned,
+                            rule.points >=
+                                25
+                                ? "risk"
+                                : "warning"
+                        );
+                    }
+                }
+            );
+        }
+    );
 
     const commonRiskPhrases = [
         "registration fee",
@@ -1038,60 +1242,70 @@ function highlightText(
         "no interview",
         "guaranteed salary",
         "guaranteed income",
-        "pay",
-        "limited vacancies",
-        "apply immediately"
+        "pay"
     ];
 
     commonRiskPhrases.forEach(
         (phrase) => {
-            phrases.push({
-                source: phrase.replace(
+            addPhrase(
+                phrase,
+                "risk"
+            );
+        }
+    );
+
+    const commonWarningPhrases = [
+        "limited vacancies",
+        "apply immediately",
+        "urgent hiring",
+        "whatsapp",
+        "no experience required",
+        "immediate joining"
+    ];
+
+    commonWarningPhrases.forEach(
+        (phrase) => {
+            addPhrase(
+                phrase,
+                "warning"
+            );
+        }
+    );
+
+    const ordered =
+        [...phrases.values()].sort(
+            (a, b) =>
+                b.phrase.length -
+                a.phrase.length
+        );
+
+    ordered.forEach(
+        (item) => {
+            const escapedPhrase =
+                escapeHTML(
+                    item.phrase
+                ).replace(
                     /[.*+?^${}()|[\]\\]/g,
                     "\\$&"
-                ),
-                type:
-                    /fee|otp|upi|bank|aadhaar|pan|no interview|guaranteed|pay/i.test(
-                        phrase
-                    )
-                        ? "risk"
-                        : "warning"
-            });
+                );
+
+            try {
+                const regex =
+                    new RegExp(
+                        `(${escapedPhrase})`,
+                        "gi"
+                    );
+
+                result =
+                    result.replace(
+                        regex,
+                        `<mark class="highlight-${item.type}">$1</mark>`
+                    );
+            } catch {
+                /* Ignore invalid highlight patterns */
+            }
         }
     );
-
-    phrases.sort(
-        (a, b) =>
-            b.source.length -
-            a.source.length
-    );
-
-    const used = new Set();
-
-    phrases.forEach((item) => {
-        const key =
-            item.source.toLowerCase();
-
-        if (used.has(key)) {
-            return;
-        }
-
-        used.add(key);
-
-        try {
-            const regex = new RegExp(
-                `(${item.source})`,
-                "gi"
-            );
-
-            result = result.replace(
-                regex,
-                `<mark class="highlight-${item.type}">$1</mark>`
-            );
-        } catch {
-            /* Ignore invalid patterns */
-        }
-    });
 
     return result;
 }
@@ -1111,7 +1325,8 @@ function buildDetailedExplanation(
     if (triggeredRules.length) {
         paragraphs.push(
             `The analyzer detected ${triggeredRules.length} warning pattern${
-                triggeredRules.length === 1
+                triggeredRules.length ===
+                1
                     ? ""
                     : "s"
             } in the submitted job text.`
@@ -1122,7 +1337,10 @@ function buildDetailedExplanation(
         );
     }
 
-    if (contacts.personalEmails.length) {
+    if (
+        contacts.personalEmails
+            .length
+    ) {
         paragraphs.push(
             `A free email provider was detected: ${contacts.personalEmails.join(
                 ", "
@@ -1162,15 +1380,18 @@ function buildDetailedExplanation(
    DISPLAY RESULT
 ========================================================= */
 
-function displayResult(analysis) {
+function displayResult(
+    analysis
+) {
     if (!resultSection) {
         return;
     }
 
-    const info = getRiskInformation(
-        analysis.risk.level,
-        analysis.risk.score
-    );
+    const info =
+        getRiskInformation(
+            analysis.risk.level,
+            analysis.risk.score
+        );
 
     if (riskScore) {
         riskScore.textContent =
@@ -1241,6 +1462,7 @@ function displayResult(analysis) {
     if (recommendation) {
         recommendation.innerHTML = `
             <div class="analysis-row">
+
                 <span class="analysis-label">
                     Recommendation
                 </span>
@@ -1250,6 +1472,7 @@ function displayResult(analysis) {
                         info.recommendation
                     )}
                 </span>
+
             </div>
         `;
     }
@@ -1365,6 +1588,31 @@ const scanStages = [
     "Preparing explainable results..."
 ];
 
+/*
+   Exact progress requested:
+   12, 25, 37, 50, 62, 75, 87, 100
+*/
+
+const scanProgressValues = [
+    12,
+    25,
+    37,
+    50,
+    62,
+    75,
+    87,
+    100
+];
+
+function updateScanProgress(
+    progress
+) {
+    if (scanProgressFill) {
+        scanProgressFill.style.width =
+            `${progress}%`;
+    }
+}
+
 function showLoading() {
     if (loadingArea) {
         loadingArea.classList.remove(
@@ -1382,89 +1630,109 @@ function showLoading() {
         analyzeButton.disabled = true;
     }
 
-    let currentStage = 0;
+    updateScanProgress(0);
 
     if (loadingText) {
         loadingText.innerHTML = `
-            <strong>SCANNING JOB POSTING...</strong><br>
-            <span>Reading job description...</span><br>
-            <span>0%</span>
+            <strong>🔍 SCANNING JOB POSTING...</strong>
+            <br><br>
+            <span>Reading job description...</span>
+            <br><br>
+            <strong>0%</strong>
         `;
     }
 
-    scanTimer = setInterval(() => {
-        currentStage++;
+    let currentStage = 0;
 
-        const completed =
-            currentStage;
+    scanTimer =
+        setInterval(() => {
+            if (
+                currentStage >=
+                scanStages.length
+            ) {
+                clearInterval(
+                    scanTimer
+                );
 
-        const progress = Math.min(
-            100,
-            Math.round(
-                (completed /
-                    scanStages.length) *
-                    100
-            )
-        );
+                scanTimer = null;
 
-        const completedLines =
-            scanStages
-                .slice(
-                    0,
+                return;
+            }
+
+            const progress =
+                scanProgressValues[
                     currentStage
-                )
-                .map(
-                    (stage) =>
-                        `✓ ${escapeHTML(
-                            stage.replace(
-                                "...",
-                                ""
-                            )
-                        )}`
-                )
-                .join("<br>");
+                ];
 
-        const current =
-            scanStages[
-                Math.min(
-                    currentStage,
-                    scanStages.length - 1
-                )
-            ];
+            const currentStageText =
+                scanStages[
+                    currentStage
+                ];
 
-        if (loadingText) {
-            loadingText.innerHTML = `
-                <strong>🔍 SCANNING JOB POSTING...</strong>
-                <br><br>
+            const completedStages =
+                scanStages
+                    .slice(
+                        0,
+                        currentStage
+                    )
+                    .map(
+                        (stage) =>
+                            `✓ ${escapeHTML(
+                                stage.replace(
+                                    "...",
+                                    ""
+                                )
+                            )}`
+                    )
+                    .join("<br>");
 
-                ${completedLines}
+            updateScanProgress(
+                progress
+            );
 
-                <br>
-                <span>⟳ ${escapeHTML(
-                    current
-                )}</span>
+            if (loadingText) {
+                loadingText.innerHTML = `
+                    <strong>
+                        🔍 SCANNING JOB POSTING...
+                    </strong>
 
-                <br><br>
+                    <br><br>
 
-                <strong>${progress}%</strong>
-            `;
-        }
+                    ${
+                        completedStages
+                            ? completedStages +
+                              "<br>"
+                            : ""
+                    }
 
-        if (
-            currentStage >=
-            scanStages.length
-        ) {
-            clearInterval(scanTimer);
-            scanTimer = null;
-        }
-    }, 400);
+                    <span>
+                        ⟳ ${escapeHTML(
+                            currentStageText
+                        )}
+                    </span>
+
+                    <br><br>
+
+                    <strong>
+                        ${progress}%
+                    </strong>
+                `;
+            }
+
+            currentStage++;
+        }, 400);
 }
 
 function hideLoading() {
     if (scanTimer) {
-        clearInterval(scanTimer);
+        clearInterval(
+            scanTimer
+        );
+
         scanTimer = null;
     }
+
+    updateScanProgress(100);
 
     if (loadingArea) {
         loadingArea.classList.add(
@@ -1503,7 +1771,9 @@ function getHistory() {
     }
 }
 
-function saveHistory(analysis) {
+function saveHistory(
+    analysis
+) {
     const history =
         getHistory();
 
@@ -1516,12 +1786,22 @@ function saveHistory(analysis) {
             analysis.createdAt
     });
 
-    localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(
-            history.slice(0, 30)
-        )
-    );
+    try {
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(
+                history.slice(
+                    0,
+                    30
+                )
+            )
+        );
+    } catch (error) {
+        console.warn(
+            "Unable to save history:",
+            error
+        );
+    }
 }
 
 /* =========================================================
@@ -1537,8 +1817,10 @@ function formatDate(
         ).toLocaleString(
             undefined,
             {
-                dateStyle: "medium",
-                timeStyle: "short"
+                dateStyle:
+                    "medium",
+                timeStyle:
+                    "short"
             }
         );
     } catch {
@@ -1599,16 +1881,31 @@ function renderHistory() {
         history
             .map((item) => {
                 const preview =
-                    item.text
+                    String(
+                        item.text || ""
+                    )
                         .replace(
                             /\s+/g,
                             " "
                         )
                         .trim();
 
+                const safeLevel =
+                    [
+                        "low",
+                        "suspicious",
+                        "high"
+                    ].includes(
+                        item.level
+                    )
+                        ? item.level
+                        : "low";
+
                 return `
                     <div class="history-item">
+
                         <div>
+
                             <div class="history-item-title">
                                 ${escapeHTML(
                                     preview.slice(
@@ -1616,11 +1913,11 @@ function renderHistory() {
                                         100
                                     )
                                 )}${
-                    preview.length >
-                    100
-                        ? "..."
-                        : ""
-                }
+                                    preview.length >
+                                    100
+                                        ? "..."
+                                        : ""
+                                }
                             </div>
 
                             <div class="history-item-date">
@@ -1630,13 +1927,15 @@ function renderHistory() {
                                     )
                                 )}
                             </div>
+
                         </div>
 
-                        <div class="history-score risk-${escapeHTML(
-                            item.level
-                        )}">
-                            ${item.score}/100
+                        <div class="history-score risk-${safeLevel}">
+                            ${escapeHTML(
+                                item.score
+                            )}/100
                         </div>
+
                     </div>
                 `;
             })
@@ -1661,6 +1960,7 @@ async function handleAnalyze() {
         );
 
         jobDescription.focus();
+
         return;
     }
 
@@ -1670,6 +1970,17 @@ async function handleAnalyze() {
         );
 
         jobDescription.focus();
+
+        return;
+    }
+
+    if (text.length > MAX_TEXT_LENGTH) {
+        showError(
+            `Please keep the job description within ${MAX_TEXT_LENGTH.toLocaleString()} characters.`
+        );
+
+        jobDescription.focus();
+
         return;
     }
 
@@ -1679,12 +1990,14 @@ async function handleAnalyze() {
         );
     }
 
+    currentAnalysis = null;
+
     showLoading();
 
     /*
-       Deliberate scan duration.
-       The analysis itself remains local and
-       is performed after the scan animation.
+       8 stages × 400ms = 3200ms.
+       Small additional delay ensures 100%
+       is visible before result appears.
     */
 
     await new Promise(
@@ -1731,7 +2044,9 @@ async function handleAnalyze() {
    ERROR
 ========================================================= */
 
-function showError(message) {
+function showError(
+    message
+) {
     if (!errorMessage) {
         return;
     }
@@ -1756,8 +2071,21 @@ function updateCharacterCount() {
         return;
     }
 
+    const length =
+        jobDescription.value.length;
+
     characterCount.textContent =
-        `${jobDescription.value.length.toLocaleString()} characters`;
+        `${length.toLocaleString()} / ${MAX_TEXT_LENGTH.toLocaleString()}`;
+
+    if (length > MAX_TEXT_LENGTH) {
+        characterCount.classList.add(
+            "limit-exceeded"
+        );
+    } else {
+        characterCount.classList.remove(
+            "limit-exceeded"
+        );
+    }
 }
 
 /* =========================================================
@@ -1765,6 +2093,14 @@ function updateCharacterCount() {
 ========================================================= */
 
 function clearAnalyzer() {
+    if (scanTimer) {
+        clearInterval(
+            scanTimer
+        );
+
+        scanTimer = null;
+    }
+
     if (jobDescription) {
         jobDescription.value = "";
     }
@@ -1783,6 +2119,19 @@ function clearAnalyzer() {
         );
     }
 
+    if (loadingArea) {
+        loadingArea.classList.add(
+            "hidden"
+        );
+    }
+
+    if (analyzeButton) {
+        analyzeButton.disabled =
+            false;
+    }
+
+    updateScanProgress(0);
+
     currentAnalysis = null;
 
     if (jobDescription) {
@@ -1794,7 +2143,9 @@ function clearAnalyzer() {
    SAMPLE LOADER
 ========================================================= */
 
-function loadSample(type) {
+function loadSample(
+    type
+) {
     if (!jobDescription) {
         return;
     }
@@ -1804,6 +2155,14 @@ function loadSample(type) {
 
     if (!sample) {
         return;
+    }
+
+    if (scanTimer) {
+        clearInterval(
+            scanTimer
+        );
+
+        scanTimer = null;
     }
 
     jobDescription.value =
@@ -1816,6 +2175,25 @@ function loadSample(type) {
             "hidden"
         );
     }
+
+    if (resultSection) {
+        resultSection.classList.add(
+            "hidden"
+        );
+    }
+
+    if (loadingArea) {
+        loadingArea.classList.add(
+            "hidden"
+        );
+    }
+
+    if (analyzeButton) {
+        analyzeButton.disabled =
+            false;
+    }
+
+    currentAnalysis = null;
 
     jobDescription.focus();
 
@@ -1946,7 +2324,9 @@ async function copyCurrentAnalysis() {
     }
 }
 
-function fallbackCopy(text) {
+function fallbackCopy(
+    text
+) {
     const textarea =
         document.createElement(
             "textarea"
@@ -2029,7 +2409,10 @@ async function shareCurrentAnalysis() {
 
             return;
         } catch {
-            /* User cancelled */
+            /*
+               User cancelled share.
+               Do not show an error.
+            */
         }
     }
 
@@ -2091,11 +2474,16 @@ function downloadCurrentReport() {
     const reportHTML = `
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 <meta charset="UTF-8">
-<title>AI JobGuard Report</title>
+
+<title>
+AI JobGuard Report
+</title>
 
 <style>
+
 body {
     font-family: Arial, sans-serif;
     max-width: 850px;
@@ -2144,17 +2532,26 @@ li {
     color: #68738a;
     font-size: 12px;
 }
+
 </style>
+
 </head>
 
 <body>
 
-<h1>AI JobGuard</h1>
+<h1>
+AI JobGuard
+</h1>
 
-<p>AI-Powered Fake Job & Internship Detector</p>
+<p>
+AI-Powered Fake Job & Internship Detector
+</p>
 
 <div class="box">
-    <div>Risk Score</div>
+
+    <div>
+        Risk Score
+    </div>
 
     <div class="score">
         ${analysis.risk.score}/100
@@ -2163,25 +2560,40 @@ li {
     <div class="level">
         ${escapeHTML(info.pill)}
     </div>
+
 </div>
 
 <div class="box">
-    <h2>Explanation</h2>
-    <p>${escapeHTML(
-        info.explanation
-    )}</p>
+
+    <h2>
+        Explanation
+    </h2>
+
+    <p>
+        ${escapeHTML(
+            info.explanation
+        )}
+    </p>
+
 </div>
 
 <div class="box">
-    <h2>Warning Signs</h2>
+
+    <h2>
+        Warning Signs
+    </h2>
 
     <ul>
         ${warnings}
     </ul>
+
 </div>
 
 <div class="box">
-    <h2>Personal Data Detected</h2>
+
+    <h2>
+        Personal Data Detected
+    </h2>
 
     <p>
         ${
@@ -2194,26 +2606,35 @@ li {
                 : "None detected"
         }
     </p>
+
 </div>
 
 <div class="box">
-    <h2>Recommendation</h2>
+
+    <h2>
+        Recommendation
+    </h2>
 
     <p>
         ${escapeHTML(
             info.recommendation
         )}
     </p>
+
 </div>
 
 <div class="box">
-    <h2>Submitted Job Text</h2>
+
+    <h2>
+        Submitted Job Text
+    </h2>
 
     <div class="source">
         ${escapeHTML(
             analysis.text
         )}
     </div>
+
 </div>
 
 <p class="disclaimer">
@@ -2224,6 +2645,7 @@ li {
 </p>
 
 </body>
+
 </html>
     `.trim();
 
@@ -2258,7 +2680,9 @@ li {
 
     link.remove();
 
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 100);
 
     showTemporaryButtonText(
         downloadReport,
@@ -2302,43 +2726,54 @@ function setupNavigation() {
     const links =
         $$(".nav-links a");
 
-    links.forEach((link) => {
-        link.addEventListener(
-            "click",
-            (event) => {
-                const href =
-                    link.getAttribute(
-                        "href"
+    links.forEach(
+        (link) => {
+            link.addEventListener(
+                "click",
+                (event) => {
+                    const href =
+                        link.getAttribute(
+                            "href"
+                        );
+
+                    if (
+                        !href ||
+                        !href.startsWith(
+                            "#"
+                        )
+                    ) {
+                        return;
+                    }
+
+                    let target = null;
+
+                    try {
+                        target =
+                            document.querySelector(
+                                href
+                            );
+                    } catch {
+                        return;
+                    }
+
+                    if (!target) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    target.scrollIntoView(
+                        {
+                            behavior:
+                                "smooth",
+                            block:
+                                "start"
+                        }
                     );
-
-                if (
-                    !href ||
-                    !href.startsWith(
-                        "#"
-                    )
-                ) {
-                    return;
                 }
-
-                const target =
-                    document.querySelector(
-                        href
-                    );
-
-                if (!target) {
-                    return;
-                }
-
-                event.preventDefault();
-
-                target.scrollIntoView({
-                    behavior:
-                        "smooth",
-                    block: "start"
-                });
-            }
-        );
-    });
+            );
+        }
+    );
 }
 
 /* =========================================================
@@ -2701,6 +3136,8 @@ function init() {
             "hidden"
         );
     }
+
+    updateScanProgress(0);
 
     console.log(
         "AI JobGuard initialized successfully."
