@@ -12,15 +12,36 @@
 <body>
 
     <!-- =========================================================
-         ANIMATED BACKGROUND
+         LIVE CYBER BACKGROUND
     ========================================================== -->
 
     <canvas id="backgroundCanvas"></canvas>
 
     <div class="background-grid"></div>
 
+    <div class="cyber-vignette"></div>
+
+    <div class="cyber-scan-line"></div>
+
     <div class="glow glow-one"></div>
     <div class="glow glow-two"></div>
+    <div class="glow glow-three"></div>
+
+    <div class="cyber-orbit orbit-one"></div>
+    <div class="cyber-orbit orbit-two"></div>
+
+    <div class="background-data data-one">
+        <span>SECURE_NODE_01</span>
+        <span>ANALYSIS_ACTIVE</span>
+        <span>RISK_ENGINE</span>
+    </div>
+
+    <div class="background-data data-two">
+        <span>JOBGUARD://SCAN</span>
+        <span>THREAT_MONITOR</span>
+        <span>SYSTEM_READY</span>
+    </div>
+
 
 
     <!-- =========================================================
@@ -31,22 +52,30 @@
 
         <div class="brand">
 
-            <div class="brand-icon">🛡️</div>
+            <div class="brand-icon">
+                🛡️
+            </div>
 
-            <div>
-                <div class="brand-name">AI JobGuard</div>
+            <div class="brand-text">
+
+                <div class="brand-name">
+                    AI JobGuard
+                </div>
 
                 <div class="brand-mini">
                     Smart Job Safety
                 </div>
+
             </div>
 
         </div>
 
 
-        <nav>
+        <nav class="main-nav">
 
-            <a href="#analyzer">Analyzer</a>
+            <a href="#analyzer">
+                Analyzer
+            </a>
 
             <a href="#how-it-works">
                 How It Works
@@ -69,7 +98,9 @@
 
                 <span class="status-dot"></span>
 
-                SYSTEM ONLINE
+                <span>
+                    SYSTEM ONLINE
+                </span>
 
             </div>
 
@@ -92,56 +123,104 @@
 
         <section class="hero">
 
-            <h1>
-
-                <span>Detect.</span>
-
-                <span>Analyze.</span>
-
-                <span>Protect.</span>
-
-            </h1>
+            <div class="hero-content">
 
 
-            <p class="hero-description">
+                <div class="hero-badge">
 
-                AI JobGuard helps identify suspicious job and internship
-                opportunities before you share money or sensitive information.
+                    <span class="hero-badge-dot"></span>
 
-            </p>
-
-
-            <div class="hero-stats">
-
-
-                <div class="hero-stat glass-card">
-
-                    <strong>0–100</strong>
-
-                    <span>
-                        Risk Score
-                    </span>
+                    AI-POWERED JOB SAFETY
 
                 </div>
 
 
-                <div class="hero-stat glass-card">
+                <div class="hero-kicker">
+                    Smart Job Safety
+                </div>
 
-                    <strong>15+</strong>
+
+                <h1 class="hero-title">
 
                     <span>
-                        Risk Signals
+                        Detect.
                     </span>
+
+                    <span>
+                        Analyze.
+                    </span>
+
+                    <span>
+                        Protect.
+                    </span>
+
+                </h1>
+
+
+                <p class="hero-description">
+
+                    AI JobGuard helps identify suspicious job and
+                    internship opportunities before you share money
+                    or sensitive information.
+
+                </p>
+
+
+                <div class="hero-stats">
+
+
+                    <div class="hero-stat glass-card">
+
+                        <div class="hero-stat-value">
+                            0–100
+                        </div>
+
+                        <div class="hero-stat-label">
+                            Risk Score
+                        </div>
+
+                    </div>
+
+
+                    <div class="hero-stat glass-card">
+
+                        <div class="hero-stat-value">
+                            15+
+                        </div>
+
+                        <div class="hero-stat-label">
+                            Risk Signals
+                        </div>
+
+                    </div>
+
+
+                    <div class="hero-stat glass-card">
+
+                        <div class="hero-stat-value">
+                            3
+                        </div>
+
+                        <div class="hero-stat-label">
+                            Risk Levels
+                        </div>
+
+                    </div>
+
 
                 </div>
 
 
-                <div class="hero-stat glass-card">
+                <div class="hero-scroll-hint">
 
-                    <strong>3</strong>
+                    <span class="scroll-line"></span>
 
                     <span>
-                        Risk Levels
+                        SCROLL TO ANALYZE
+                    </span>
+
+                    <span class="scroll-arrow">
+                        ↓
                     </span>
 
                 </div>
@@ -317,8 +396,6 @@
                     </div>
 
 
-                    <!-- Progress bar -->
-
                     <div class="scan-progress">
 
                         <div
@@ -328,8 +405,6 @@
 
                     </div>
 
-
-                    <!-- Scan steps -->
 
                     <div
                         id="scanSteps"
@@ -516,8 +591,6 @@
                 class="risk-card glass-card">
 
 
-                <!-- SCORE -->
-
                 <div class="score-area">
 
                     <div class="score-ring">
@@ -544,8 +617,6 @@
                 </div>
 
 
-
-                <!-- SUMMARY -->
 
                 <div class="risk-summary">
 
@@ -667,7 +738,6 @@
 
             <div class="analysis-card glass-card">
 
-
                 <div class="card-title">
 
                     <span>
@@ -693,7 +763,6 @@
 
             <div class="analysis-card glass-card">
 
-
                 <div class="card-title">
 
                     <span>
@@ -718,7 +787,6 @@
             <!-- SUSPICIOUS TEXT -->
 
             <div class="analysis-card glass-card">
-
 
                 <div class="card-title">
 
@@ -747,7 +815,6 @@
 
             <div class="analysis-card glass-card">
 
-
                 <div class="card-title">
 
                     <span>
@@ -772,7 +839,6 @@
             <!-- SALARY -->
 
             <div class="analysis-card glass-card">
-
 
                 <div class="card-title">
 
@@ -831,7 +897,6 @@
 
             <div class="result-actions">
 
-
                 <button
                     type="button"
                     id="downloadReport"
@@ -877,7 +942,6 @@
 
 
             <div class="section-heading centered">
-
 
                 <span class="section-label">
                     03 / PROCESS
@@ -1019,7 +1083,6 @@
 
             <div class="section-heading">
 
-
                 <div>
 
                     <span class="section-label">
@@ -1140,7 +1203,6 @@
 
             <div class="history-card glass-card">
 
-
                 <div class="card-title">
 
                     <span>
@@ -1176,7 +1238,6 @@
 
 
             <div class="section-heading centered">
-
 
                 <span class="section-label">
                     05 / AWARENESS
@@ -1295,7 +1356,6 @@
 
 
             <div class="section-heading centered">
-
 
                 <span class="section-label">
                     06 / COMPARISON
@@ -1428,7 +1488,6 @@
 
             <div class="section-heading centered">
 
-
                 <span class="section-label">
                     07 / SAFETY
                 </span>
@@ -1557,16 +1616,13 @@
 
         <div class="disclaimer">
 
-
             <strong>
                 Important:
             </strong>
 
-
             AI JobGuard provides a rule-based risk assessment using
             common suspicious patterns. It is
             <strong>not 100% accurate</strong>.
-
 
             A low-risk result does not guarantee that an opportunity is
             genuine. Always verify the employer independently.
@@ -1582,7 +1638,6 @@
     ========================================================== -->
 
     <footer>
-
 
         <div class="footer-brand">
             🛡️ AI JobGuard
